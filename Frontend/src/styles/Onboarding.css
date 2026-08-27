@@ -1,0 +1,722 @@
+:root {
+  --page-bg: #eaf0fb;
+  --card-bg: #ffffff;
+  --navy: #0f1c33;
+  --navy-2: #16233d;
+  --muted: #6b7686;
+  --border: #e2e6ee;
+  --blue: #2f6fed;
+  --blue-hover: #255ed1;
+  --blue-soft: #eef3ff;
+  --green: #1fa971;
+  --green-soft: #e9f9f1;
+  --red: #ef4444;
+  --purple: #6d5ff7;
+  --purple-soft: #eef0ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+.ob-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--page-bg);
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: 24px 20px;
+}
+
+.ob-box {
+  width: 100%;
+  max-width: 700px;
+  max-height: calc(100vh - 48px);
+  background: var(--card-bg);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(18, 39, 67, 0.1);
+  padding: 28px 32px 26px;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--navy);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.brand-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--navy);
+  letter-spacing: -0.01em;
+}
+
+/* ---------------- Progress bar ---------------- */
+
+.ob-progress {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.ob-progress-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.ob-progress-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f3f5fb;
+  color: #98a2b3;
+  border: 1.5px solid var(--border);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ob-progress-active .ob-progress-dot {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.ob-progress-done .ob-progress-dot {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.ob-progress-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #98a2b3;
+  white-space: nowrap;
+}
+
+.ob-progress-active .ob-progress-label {
+  color: var(--blue);
+}
+
+.ob-progress-done .ob-progress-label {
+  color: var(--green);
+}
+
+.ob-progress-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin: 0 4px;
+  margin-bottom: 15px;
+  transition: background 0.15s ease;
+}
+
+.ob-progress-line-done {
+  background: var(--green);
+}
+
+/* ---------------- Step body ---------------- */
+
+.ob-step-body {
+  max-height: 58vh;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 18px;
+}
+
+.ob-step-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ob-step-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+}
+
+.ob-step .welcome-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: #0b1220;
+  margin: 0 0 4px;
+  letter-spacing: -0.02em;
+}
+
+.ob-step .welcome-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+
+.ob-field {
+  margin-bottom: 4px;
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #16233d;
+  margin: 0 0 5px;
+}
+
+.ob-required {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.ob-field-row {
+  display: flex;
+  gap: 14px;
+}
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.input-wrap input,
+.ob-select {
+  width: 100%;
+  padding: 9px 14px 9px 40px;
+  border-radius: 9px;
+  border: 1.5px solid var(--border);
+  font-size: 13.5px;
+  color: #1a2334;
+  background: #fff;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-wrap input::placeholder {
+  color: #9aa5b4;
+}
+
+.input-wrap input:focus,
+.ob-select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 4px var(--blue-soft);
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  display: flex;
+  color: #8b95a7;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ob-select-wrap .ob-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  cursor: pointer;
+}
+
+.ob-select-chevron {
+  position: absolute;
+  right: 12px;
+  color: #8b95a7;
+  pointer-events: none;
+  display: flex;
+}
+
+.ob-error {
+  font-size: 11.5px;
+  color: var(--red);
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+/* ---------------- Question groups ---------------- */
+
+.ob-question {
+  font-size: 13px;
+  font-weight: 700;
+  color: #16233d;
+  margin: 18px 0 8px;
+}
+
+.ob-hint {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #98a2b3;
+}
+
+.ob-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ob-cols, 2), 1fr);
+  gap: 8px;
+}
+
+.ob-choice-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #344054;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ob-choice-card:hover {
+  border-color: #c7d2e5;
+  background: #f9fafc;
+}
+
+.ob-choice-card-active {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: #16233d;
+  font-weight: 600;
+}
+
+.ob-choice-radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid #c7cedb;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.ob-choice-card-active .ob-choice-radio {
+  border-color: var(--blue);
+}
+
+.ob-choice-radio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+
+.ob-choice-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1.5px solid #c7cedb;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.ob-choice-check-active {
+  border-color: var(--blue);
+  background: var(--blue);
+}
+
+/* ---------------- Nav row ---------------- */
+
+.ob-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.ob-nav-row-plan {
+  justify-content: flex-start;
+}
+
+.ob-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 4px;
+}
+
+.ob-back-btn:hover:not(:disabled) {
+  color: var(--navy);
+}
+
+.ob-back-btn:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.signin-btn {
+  padding: 10px 22px;
+  border: none;
+  border-radius: 10px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.signin-btn:hover {
+  background: var(--blue-hover);
+}
+
+.signin-btn:active {
+  transform: scale(0.99);
+}
+
+.ob-continue-btn {
+  min-width: 120px;
+}
+
+/* ---------------- Plan step ---------------- */
+
+.ob-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ob-plan-card {
+  position: relative;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 14px;
+  background: #fbfcfe;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ob-plan-card-highlight {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+[role="button"].ob-plan-card {
+  cursor: pointer;
+}
+
+.ob-plan-card-selected {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-soft);
+}
+
+.ob-plan-badge {
+  position: absolute;
+  top: -10px;
+  left: 14px;
+  background: var(--green);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+
+.ob-plan-radio {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 17px;
+  height: 17px;
+}
+
+.ob-choice-radio-selected {
+  border-color: var(--blue);
+}
+
+.ob-plan-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-2);
+  margin: 4px 0 6px;
+}
+
+.ob-plan-price {
+  font-size: 21px;
+  font-weight: 800;
+  color: #0b1220;
+  letter-spacing: -0.01em;
+  margin: 0 0 10px;
+}
+
+.ob-plan-cadence {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ob-plan-perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ob-plan-perks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  color: #475467;
+  line-height: 1.4;
+}
+
+.ob-plan-perks li svg {
+  color: var(--green);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ob-compare-link {
+  display: block;
+  margin: 0 auto 18px;
+  background: none;
+  border: none;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ob-compare-link:hover {
+  color: var(--blue-hover);
+}
+
+.ob-plan-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.ob-plan-btn {
+  flex: 1;
+  text-align: center;
+}
+
+.ob-secondary-btn {
+  flex: 1;
+  padding: 10px 22px;
+  border: 1.5px solid var(--blue);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ob-secondary-btn:hover {
+  background: var(--blue-soft);
+}
+
+/* ---------------- Compare modal ---------------- */
+
+.ob-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.ob-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  padding: 26px 26px 22px;
+}
+
+.ob-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #f3f5fb;
+  color: #667085;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.ob-modal-close:hover {
+  background: #e7eaf3;
+}
+
+.ob-modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0b1220;
+  margin: 0 0 16px;
+  letter-spacing: -0.01em;
+}
+
+.ob-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ob-modal-plan {
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 11px;
+  background: #fbfcfe;
+}
+
+.ob-modal-plan-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy-2);
+  margin: 0 0 4px;
+}
+
+.ob-modal-plan-price {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0b1220;
+  margin: 0;
+}
+
+.ob-modal-plan-price span {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ob-modal-plan-sub {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 1px 0 8px;
+}
+
+.ob-modal-plan-perks {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ob-modal-plan-perks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 10.5px;
+  color: #475467;
+  line-height: 1.35;
+}
+
+.ob-modal-plan-perks li svg {
+  color: var(--green);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ob-modal-note {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  background: #f7f8fd;
+  border-radius: 10px;
+  padding: 11px 13px;
+  margin: 0 0 18px;
+}
+
+.ob-modal-got-it {
+  width: 100%;
+}
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width: 680px) {
+  .ob-page {
+    padding: 20px 12px;
+  }
+  .ob-box {
+    padding: 22px 18px 18px;
+    border-radius: 16px;
+  }
+  .ob-progress-label {
+    display: none;
+  }
+  .ob-field-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .ob-plans-grid,
+  .ob-modal-grid {
+    grid-template-columns: 1fr;
+  }
+  .ob-plan-actions {
+    flex-direction: column;
+  }
+  .ob-choice-grid {
+    grid-template-columns: repeat(min(var(--ob-cols, 2), 2), 1fr) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .ob-choice-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
