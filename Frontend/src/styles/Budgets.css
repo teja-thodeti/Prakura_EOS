@@ -1,0 +1,422 @@
+/* Budgets page — extends the shared shell styles in Dashboard.css
+   (.dash-app, .sidebar, .topbar, .dash-main, .dash-content, .dash-title-row)
+   and reuses the filter / drawer / modal / choice-card / form patterns
+   from Transactions.css (.tx-add-btn, .tx-type-pills, .tx-drawer*,
+   .tx-modal-overlay, .tx-confirm-card, .tx-choice-card, .tx-form fields,
+   .tx-icon-btn). Only page-specific styles for the month switcher,
+   summary card, alerts panel, progress bars and budget cards live here. */
+
+.bud-content {
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+/* ---------------- Month switcher ---------------- */
+
+.bud-month-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--card-bg);
+  border-radius: 999px;
+  padding: 5px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  margin-bottom: 14px;
+}
+
+.bud-month-nav {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #667085;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.bud-month-nav:hover {
+  background: #f3f5fb;
+}
+
+.bud-month-label {
+  min-width: 148px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #16233d;
+}
+
+/* ---------------- Current month summary ---------------- */
+
+.bud-summary-card {
+  border-radius: 16px;
+  padding: 20px 22px;
+  margin-bottom: 14px;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(47, 111, 237, 0.22);
+  background: linear-gradient(135deg, #2f6fed 0%, #5b8cf5 100%);
+}
+
+.bud-summary-near {
+  background: linear-gradient(135deg, #e08a1f 0%, #f0a83f 100%);
+  box-shadow: 0 12px 28px rgba(224, 138, 31, 0.24);
+}
+
+.bud-summary-over {
+  background: linear-gradient(135deg, #d5392f 0%, #ef5a4d 100%);
+  box-shadow: 0 12px 28px rgba(213, 57, 47, 0.24);
+}
+
+.bud-summary-stats {
+  display: flex;
+  gap: 28px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.bud-summary-stat-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 4px;
+}
+
+.bud-summary-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.bud-summary-stat-neg {
+  color: #ffe3df;
+}
+
+.bud-summary-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.85);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bud-overspend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.22);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 10.5px;
+}
+
+/* ---------------- Progress bars ---------------- */
+
+.bud-progress-track {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: #eef0f5;
+  overflow: hidden;
+}
+
+.bud-progress-track-lg {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.bud-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.bud-progress-fill-safe {
+  background: #16a34a;
+}
+
+.bud-progress-fill-near {
+  background: #f59e0b;
+}
+
+.bud-progress-fill-over {
+  background: #ef4444;
+}
+
+.bud-summary-card .bud-progress-fill {
+  background: #fff;
+}
+
+/* ---------------- Threshold alerts ---------------- */
+
+.bud-alerts-panel {
+  background: #fffaf0;
+  border: 1px solid #fde3b0;
+  border-radius: 13px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.bud-alerts-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a15c07;
+}
+
+.bud-alerts-header p {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.bud-alerts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.bud-alert-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.bud-alert-chip-near {
+  background: #fef3d9;
+  color: #a15c07;
+}
+
+.bud-alert-chip-over {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* ---------------- Scope filter pills ---------------- */
+
+.bud-scope-pills {
+  margin-bottom: 14px;
+}
+
+/* ---------------- Budget cards grid ---------------- */
+
+.bud-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.bud-empty {
+  grid-column: 1 / -1;
+}
+
+.bud-card {
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1.5px solid transparent;
+}
+
+.bud-card-over {
+  border-color: #fecaca;
+}
+
+.bud-card-near {
+  border-color: #fde3b0;
+}
+
+.bud-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.bud-card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.bud-card-icon-blue {
+  background: var(--blue-soft, #eef3ff);
+  color: var(--blue);
+}
+
+.bud-card-icon-purple {
+  background: var(--purple-soft, #eef0ff);
+  color: var(--purple, #6d5ff7);
+}
+
+.bud-card-icon-red {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.bud-card-title-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.bud-card-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary, #101828);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bud-card-sub {
+  font-size: 11px;
+  color: var(--text-faint, #98a2b3);
+  margin: 2px 0 0;
+}
+
+.bud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bud-badge-safe {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.bud-badge-near {
+  background: #fef3d9;
+  color: #a15c07;
+}
+
+.bud-badge-over {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.bud-card-amounts {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.bud-card-spent {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0b1220;
+  letter-spacing: -0.01em;
+}
+
+.bud-card-of {
+  font-size: 12px;
+  color: var(--text-muted, #6b7280);
+}
+
+.bud-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bud-card-remaining {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.bud-card-remaining-neg {
+  color: var(--red, #ef4444);
+}
+
+.bud-card-pct {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #667085;
+}
+
+.bud-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: -4px;
+}
+
+/* ---------------- Add / edit form additions ---------------- */
+
+.bud-form-hint {
+  font-size: 11.5px;
+  color: var(--text-muted, #6b7280);
+  margin: 6px 0 0;
+}
+
+.bud-threshold-hint {
+  margin-top: -2px;
+  margin-bottom: 14px;
+}
+
+.bud-threshold-suffix {
+  position: absolute;
+  right: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #667085;
+}
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width: 1180px) {
+  .bud-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .bud-summary-stats {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .bud-grid {
+    grid-template-columns: 1fr;
+  }
+  .bud-summary-stat-value {
+    font-size: 19px;
+  }
+  .bud-summary-stats {
+    gap: 16px;
+  }
+  .tx-drawer {
+    max-width: 100%;
+  }
+  .tx-field-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .dash-title-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}

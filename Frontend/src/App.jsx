@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import Onboarding from "./pages/Onboarding";
 import Transactions from "./pages/Transactions";
 import Accounts from "./pages/Accounts";
+import Budgets from "./pages/Budgets";
 function App() {
     return (
         <BrowserRouter>
@@ -13,10 +14,12 @@ function App() {
                 <Route path="/" element={<Login />} />
                 <Route path="/Register" element={<Register />} />
                 <Route path="/ForgotPassword" element={<ForgotPassword />} />
-                <Route path="/Dashboard" element={<Dashboard />} />
                 <Route path="/Onboarding" element={<Onboarding />} />
-                <Route path="/Trasactions" element={<Transactions />} />
+                <Route path="/Dashboard" element={<Dashboard />} />
+                <Route path="/Transactions" element={<Transactions />} />
                 <Route path="/Accounts" element={<Accounts />} />
+                <Route path="/Budgets" element={<Budgets />} />
+
             </Routes>
         </BrowserRouter>
     );
