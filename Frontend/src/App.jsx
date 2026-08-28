@@ -9,6 +9,7 @@ import Accounts from "./pages/Accounts";
 import Budgets from "./pages/Budgets";
 import Bills from "./pages/Bills";
 import Reports from "./pages/Reports";
+import Subscription from "./pages/Subscription";
 function App() {
     return (
         <BrowserRouter>
@@ -23,6 +24,7 @@ function App() {
                 <Route path="/Budgets" element={<Budgets />} />
                 <Route path="/Bills" element={<Bills />} />
                 <Route path="/Reports" element={<Reports />} />
+                <Route path="/Subscription" element={<Subscription />} />
 
             </Routes>
         </BrowserRouter>

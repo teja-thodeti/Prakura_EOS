@@ -1,0 +1,487 @@
+/* Subscription page — extends the shared shell styles in Dashboard.css
+   (.dash-app, .sidebar, .topbar, .dash-main, .dash-content, .dash-title-row)
+   and reuses the modal / confirm / icon-btn / form patterns from
+   Transactions.css. Only page-specific styles for the status card, plan
+   cards, checkout modal and invoice list live here. */
+
+.sub-content {
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+/* ---------------- Section titles ---------------- */
+
+.sub-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary, #101828);
+  margin: 22px 0 12px;
+}
+
+/* ---------------- Current status card ---------------- */
+
+.sub-status-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-radius: 15px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+.sub-status-trial {
+  background: linear-gradient(135deg, #2f6fed 0%, #5b8cf5 100%);
+  color: #fff;
+}
+
+.sub-status-active {
+  background: var(--card-bg);
+  border: 1.5px solid #bbf0cd;
+}
+
+.sub-status-canceling {
+  background: var(--card-bg);
+  border: 1.5px solid #fde3b0;
+}
+
+.sub-status-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.sub-status-trial .sub-status-icon {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.sub-status-active .sub-status-icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.sub-status-canceling .sub-status-icon {
+  background: #fef3d9;
+  color: #a15c07;
+}
+
+.sub-status-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sub-status-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.sub-status-active .sub-status-title,
+.sub-status-canceling .sub-status-title {
+  color: var(--text-primary, #101828);
+}
+
+.sub-status-sub {
+  font-size: 12px;
+  margin: 4px 0 0;
+  opacity: 0.92;
+}
+
+.sub-status-active .sub-status-sub,
+.sub-status-canceling .sub-status-sub {
+  color: var(--text-muted, #6b7280);
+  opacity: 1;
+}
+
+.sub-trial-track {
+  width: 100%;
+  max-width: 320px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  margin-top: 9px;
+  overflow: hidden;
+}
+
+.sub-status-cta {
+  flex-shrink: 0;
+  width: auto;
+  min-width: 140px;
+  padding: 10px 18px;
+  background: #fff;
+  color: var(--blue);
+}
+.sub-status-cta {
+  flex-shrink: 0;
+  background: #fff;
+  color: var(--blue);
+}
+
+.sub-status-cta:hover {
+  opacity: 0.92;
+}
+
+/* ---------------- Plan cards ---------------- */
+
+.sub-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.sub-plan-card {
+  position: relative;
+  background: var(--card-bg);
+  border-radius: 15px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  border: 1.5px solid transparent;
+  display: flex;
+  flex-direction: column;
+}
+
+.sub-plan-card-current {
+  border-color: var(--blue);
+  box-shadow: 0 10px 24px rgba(47, 111, 237, 0.14);
+}
+
+.sub-plan-ribbon {
+  position: absolute;
+  top: -10px;
+  right: 16px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #16233d;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.sub-plan-ribbon-current {
+  background: var(--blue);
+}
+
+.sub-plan-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary, #101828);
+  margin: 4px 0 10px;
+}
+
+.sub-plan-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.sub-plan-price {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0b1220;
+}
+
+.sub-plan-suffix {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+}
+
+.sub-plan-cycle {
+  font-size: 11.5px;
+  color: var(--text-faint, #98a2b3);
+  margin: 4px 0 14px;
+}
+
+.sub-plan-features {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.sub-plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  color: #344054;
+}
+
+.sub-plan-features li svg {
+  color: #16a34a;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.sub-plan-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.sub-plan-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* ---------------- Manage subscription ---------------- */
+
+.sub-manage-card {
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+.sub-manage-row {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.sub-manage-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint, #98a2b3);
+  margin: 0 0 4px;
+}
+
+.sub-manage-value {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary, #101828);
+  margin: 0;
+}
+
+.sub-manage-actions {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------------- Invoice history ---------------- */
+
+.sub-invoice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sub-invoice-empty {
+  text-align: center;
+}
+
+.sub-invoice-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 11px 14px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.sub-invoice-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--blue-soft, #eef3ff);
+  color: var(--blue);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.sub-invoice-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sub-invoice-plan {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary, #101828);
+  margin: 0;
+}
+
+.sub-invoice-date {
+  font-size: 11px;
+  color: var(--text-faint, #98a2b3);
+  margin: 2px 0 0;
+}
+
+.sub-invoice-status {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 3px 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.sub-invoice-amount {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b1220;
+  flex-shrink: 0;
+  min-width: 56px;
+  text-align: right;
+}
+
+/* ---------------- Checkout modal ---------------- */
+
+.sub-checkout-modal {
+  position: relative;
+  background: var(--card-bg);
+  border-radius: 18px;
+  padding: 26px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+}
+
+.sub-checkout-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.sub-checkout-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary, #101828);
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+.sub-checkout-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f7f8fd;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.sub-checkout-amount {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0b1220;
+  margin: 0;
+}
+
+.sub-checkout-section-label {
+  margin-bottom: 8px;
+}
+
+.sub-payment-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #344054;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.sub-payment-option input {
+  accent-color: var(--blue);
+}
+
+.sub-card-form {
+  margin-top: 6px;
+}
+
+.sub-checkout-pay-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.sub-checkout-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 4px 4px;
+  color: var(--blue);
+}
+
+.sub-checkout-processing-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+  margin-top: 14px;
+}
+
+.sub-success-icon {
+  color: #16a34a;
+  margin-bottom: 6px;
+}
+
+.sub-checkout-center .sub-checkout-title {
+  margin: 4px 0 4px;
+}
+
+.sub-checkout-center .sub-status-sub {
+  color: var(--text-muted, #6b7280);
+  margin-bottom: 18px;
+}
+
+.sub-spinner {
+  animation: sub-spin 0.85s linear infinite;
+}
+
+@keyframes sub-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width: 1024px) {
+  .sub-plans-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .sub-plans-grid {
+    grid-template-columns: 1fr;
+  }
+  .sub-status-card {
+    flex-wrap: wrap;
+  }
+  .sub-status-cta {
+    width: 100%;
+  }
+  .sub-manage-row {
+    gap: 18px;
+  }
+  .sub-invoice-row {
+    flex-wrap: wrap;
+  }
+  .sub-invoice-amount {
+    text-align: left;
+  }
+  .dash-title-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
