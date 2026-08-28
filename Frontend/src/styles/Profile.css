@@ -1,0 +1,164 @@
+/* Profile page — uses the same shared shell and Settings card/form patterns. */
+
+.profile-content {
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+.profile-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 760px;
+}
+
+.profile-hero-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+}
+
+.profile-avatar-large {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--navy);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.profile-hero-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-hero-info h2 {
+  margin: 0;
+  color: var(--text-primary, #101828);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.profile-hero-info p {
+  margin: 4px 0 8px;
+  color: var(--text-muted, #6b7280);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #16834b;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.profile-hero-edit {
+  flex-shrink: 0;
+}
+
+.profile-field-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.profile-field-view {
+  min-width: 0;
+}
+
+.profile-field-label-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.profile-field-label-row svg {
+  color: var(--blue);
+  flex-shrink: 0;
+}
+
+.profile-field-label-row .set-field-label {
+  margin: 0;
+}
+
+.profile-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.profile-active-badge,
+.profile-complete-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.profile-active-badge {
+  background: #dcfce7;
+  color: #16834b;
+}
+
+.profile-complete-badge {
+  background: var(--blue-soft, #eef3ff);
+  color: var(--blue);
+}
+
+.profile-save-note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #e9f9f1;
+  color: #16834b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-edit-grid {
+  align-items: start;
+}
+
+.profile-menu-active {
+  background: var(--blue-soft, #eef3ff);
+  color: var(--blue);
+}
+
+@media (max-width: 800px) {
+  .profile-field-grid,
+  .profile-overview-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-hero-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .profile-hero-edit {
+    width: 100%;
+  }
+
+  .profile-field-grid,
+  .profile-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -10,6 +10,7 @@ import Budgets from "./pages/Budgets";
 import Bills from "./pages/Bills";
 import Reports from "./pages/Reports";
 import Subscription from "./pages/Subscription";
+import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 function App() {
     return (
@@ -26,6 +27,7 @@ function App() {
                 <Route path="/Bills" element={<Bills />} />
                 <Route path="/Reports" element={<Reports />} />
                 <Route path="/Subscription" element={<Subscription />} />
+                <Route path="/Profile" element={<Profile />} />
                 <Route path="/Settings" element={<Settings />} />
 
             </Routes>
