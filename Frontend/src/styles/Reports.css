@@ -1,0 +1,345 @@
+/* Reports page — extends the shared shell styles in Dashboard.css
+   (.dash-app, .sidebar, .topbar, .dash-main, .dash-content, .dash-title-row,
+   .stats-row, .stat-card, .panel, .panel-header, .bar-chart, .progress-track)
+   with page-specific styles for filters, the report sections and export/print. */
+
+.rp-content {
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+/* ---------------- Export buttons ---------------- */
+
+.rp-export-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.rp-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.rp-export-btn:hover {
+  background: #f8fafc;
+  border-color: #c7d2e5;
+}
+
+/* ---------------- Filters ---------------- */
+
+.rp-filters-panel {
+  background: var(--card-bg);
+  border-radius: 13px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rp-filter-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f3f5fb;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #344054;
+}
+
+.rp-filter-select-wrap select,
+.rp-filter-select-wrap input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12px;
+  font-family: inherit;
+  color: #344054;
+  cursor: pointer;
+}
+
+.rp-filter-select-wrap select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2px;
+}
+
+.rp-filter-dash {
+  color: #98a2b3;
+  font-size: 12px;
+}
+
+.rp-clear-filters {
+  border: none;
+  background: none;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 4px;
+}
+
+.rp-clear-filters:hover {
+  text-decoration: underline;
+}
+
+/* ---------------- Totals row ---------------- */
+
+.rp-stats-row {
+  margin-bottom: 14px;
+}
+
+/* ---------------- Panels / sections ---------------- */
+
+.rp-panel {
+  margin-bottom: 14px;
+}
+
+.rp-header-icon {
+  color: var(--blue);
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+
+.rp-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.rp-empty-note {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  padding: 16px 0;
+  text-align: center;
+}
+
+.rp-print-title {
+  display: none;
+}
+
+/* ---------------- Income vs Expense chart ---------------- */
+
+.rp-legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.rp-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.rp-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.rp-legend-green {
+  background: var(--green);
+}
+
+.rp-legend-red {
+  background: var(--red);
+}
+
+.rp-bar-chart {
+  height: 160px;
+}
+
+.rp-bar {
+  width: 8px;
+}
+
+.rp-bar-income {
+  background: var(--green);
+}
+
+.rp-bar-expense {
+  background: var(--red);
+}
+
+.rp-bar-labels {
+  font-weight: 500;
+}
+
+/* ---------------- Category-wise expenses ---------------- */
+
+.rp-category-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rp-category-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+}
+
+.rp-category-top {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rp-category-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rp-category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rp-category-amount {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rp-category-row .progress-track {
+  grid-column: 1 / -1;
+}
+
+.rp-category-pct {
+  display: none;
+}
+
+/* ---------------- Tables (monthly summary / account-wise) ---------------- */
+
+.rp-table-wrap {
+  overflow-x: auto;
+}
+
+.rp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rp-table thead th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.rp-table tbody td,
+.rp-table tfoot td {
+  padding: 9px 10px;
+  font-size: 12.5px;
+  color: #344054;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.rp-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rp-table tfoot td {
+  border-bottom: none;
+  border-top: 1.5px solid var(--border);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rp-col-num {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width: 1024px) {
+  .rp-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .rp-filters-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .rp-filter-select-wrap {
+    width: 100%;
+  }
+  .rp-export-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------------- Print (Export PDF) ---------------- */
+
+@media print {
+  .rp-no-print {
+    display: none !important;
+  }
+  .rp-print-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0b1220;
+    margin: 0 0 14px;
+  }
+  .dash-app {
+    display: block;
+    height: auto;
+    background: #fff;
+  }
+  .dash-main {
+    height: auto;
+  }
+  .dash-content {
+    overflow: visible;
+    padding: 0;
+  }
+  .rp-panel,
+  .stat-card {
+    box-shadow: none;
+    border: 1px solid #e2e6ee;
+    break-inside: avoid;
+  }
+  .rp-two-col {
+    grid-template-columns: 1fr 1fr;
+  }
+}

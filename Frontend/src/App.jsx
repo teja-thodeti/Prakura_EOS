@@ -7,6 +7,7 @@ import Onboarding from "./pages/Onboarding";
 import Transactions from "./pages/Transactions";
 import Accounts from "./pages/Accounts";
 import Budgets from "./pages/Budgets";
+import Reports from "./pages/Reports";
 function App() {
     return (
         <BrowserRouter>
@@ -19,6 +20,7 @@ function App() {
                 <Route path="/Transactions" element={<Transactions />} />
                 <Route path="/Accounts" element={<Accounts />} />
                 <Route path="/Budgets" element={<Budgets />} />
+                <Route path="/Reports" element={<Reports />} />
 
             </Routes>
         </BrowserRouter>

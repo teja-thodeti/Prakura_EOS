@@ -85,7 +85,7 @@ export default function Login() {
               <input
                 id="email"
                 type="email"
-                placeholder="prakura@gmail.com"
+                placeholder="example@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
