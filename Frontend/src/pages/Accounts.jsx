@@ -731,9 +731,6 @@ function AccountCard({ account: a, onEdit, onToggleInclude, onArchiveToggle }) {
   );
 }
 
-/* ---------------------------------------------------------------- */
-/* Add / edit drawer                                                 */
-/* ---------------------------------------------------------------- */
 
 function AccountDrawer({ mode, account, onClose, onSave, onArchive }) {
   const [draft, setDraft] = useState(account);
