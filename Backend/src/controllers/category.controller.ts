@@ -5,6 +5,30 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { ok, created, fail } from "../utils/response";
 import { AuthRequest } from "../types";
 
+export const DEFAULT_SYSTEM_CATEGORY_DEFS = [
+  { name: "Salary", kind: "income", icon: "briefcase", color: "#1fa971" },
+  { name: "Freelance", kind: "income", icon: "laptop", color: "#2f6fed" },
+  { name: "Investments", kind: "income", icon: "trending-up", color: "#6d5ff7" },
+  { name: "Groceries", kind: "expense", icon: "shopping-cart", color: "#ef4444" },
+  { name: "Rent", kind: "expense", icon: "home", color: "#f59e0b" },
+  { name: "Utilities", kind: "expense", icon: "zap", color: "#0ea5e9" },
+  { name: "Transportation", kind: "expense", icon: "car", color: "#8b5cf6" },
+  { name: "Dining Out", kind: "expense", icon: "utensils", color: "#f97316" },
+  { name: "Entertainment", kind: "expense", icon: "film", color: "#ec4899" },
+  { name: "Healthcare", kind: "expense", icon: "heart", color: "#14b8a6" },
+  { name: "Shopping", kind: "expense", icon: "shopping-bag", color: "#a855f7" },
+  { name: "Subscriptions", kind: "expense", icon: "repeat", color: "#64748b" },
+] as const;
+
+export async function ensureSystemCategories() {
+  const existingSystemCount = await Category.countDocuments({ isSystem: true });
+  if (existingSystemCount === 0) {
+    await Category.insertMany(
+      DEFAULT_SYSTEM_CATEGORY_DEFS.map((category) => ({ ...category, user: null, isSystem: true }))
+    );
+  }
+}
+
 // ========== Validation Schemas ==========
 export const createCategorySchema = z.object({
   body: z.object({
@@ -49,6 +73,8 @@ export const listSubcategoriesSchema = z.object({
 });
 
 export const listCategories = asyncHandler(async (req: AuthRequest, res: Response) => {
+  await ensureSystemCategories();
+
   const { kind } = req.query;
   const filter: Record<string, unknown> = {
     $or: [{ user: req.user!.id }, { user: null, isSystem: true }],

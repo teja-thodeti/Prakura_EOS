@@ -162,11 +162,11 @@ const NOTIFICATIONS = [
   { title: "Budget limit reached", sub: "Groceries · 92% used" },
 ];
 
-const TRIAL_TOTAL_DAYS = 30;
+const TRIAL_TOTAL_DAYS = 15;
 const TRIAL_DAYS_LEFT = 15;
 const RING_R = 22;
 const RING_C = 2 * Math.PI * RING_R;
-const RING_OFFSET = RING_C * (1 - TRIAL_DAYS_LEFT / TRIAL_TOTAL_DAYS);
+const RING_OFFSET = 0;
 
 const CATEGORY_COLORS = ["#2f6fed", "#6d5ff7", "#ef4444", "#16a34a", "#f59e0b", "#06b6d4", "#ec4899", "#84766b"];
 

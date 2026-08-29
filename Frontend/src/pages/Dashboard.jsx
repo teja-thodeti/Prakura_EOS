@@ -209,7 +209,7 @@ const fmtMoney = (n) =>
   `₹${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /* Trial ring: circumference for r=22 */
-const TRIAL_TOTAL_DAYS = 30;
+const TRIAL_TOTAL_DAYS = 15;
 const RING_R = 22;
 const RING_C = 2 * Math.PI * RING_R;
 
@@ -298,9 +298,9 @@ export default function Dashboard() {
   const upcomingBills = summary?.upcomingBills || [];
 
   const onboarding = summary?.onboarding;
-  const trialDaysLeft = onboarding?.completed ? 0 : TRIAL_TOTAL_DAYS;
-  const ringProgress = trialDaysLeft / TRIAL_TOTAL_DAYS;
-  const ringOffset = RING_C * (1 - ringProgress);
+  const trialDaysLeft = TRIAL_TOTAL_DAYS;
+  const ringProgress = 1;
+  const ringOffset = 0;
 
   return (
     <div className="dash-app" ref={wrapRef}>

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import { z } from "zod";
 import { User, UserProfile, Session, RefreshToken, OTP, TrustedDevice } from "../models";
+import { ensureSystemCategories } from "./category.controller";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ok, created, fail } from "../utils/response";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../utils/jwt";
@@ -64,6 +65,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   const passwordHash = await bcrypt.hash(password, env.BCRYPT_SALT_ROUNDS);
   const user = await User.create({ name, email, passwordHash });
   await UserProfile.create({ user: user._id });
+  await ensureSystemCategories();
 
   const { accessToken, refreshToken } = await issueTokenPair(user._id.toString(), user.role, req);
 

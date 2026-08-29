@@ -9,7 +9,7 @@ import { AuthRequest } from "../types";
 export const createAccountSchema = z.object({
   body: z.object({
     name: z.string().min(1).max(100),
-    type: z.enum(["checking", "savings", "credit_card", "cash", "investment"]),
+    type: z.enum(["bank", "credit_card", "cash", "wallet", "investment", "loan", "other"]),
     balance: z.number().optional(),
     currency: z.string().length(3).optional(),
     isArchived: z.boolean().optional(),
@@ -20,7 +20,7 @@ export const createAccountSchema = z.object({
 export const updateAccountSchema = z.object({
   body: z.object({
     name: z.string().min(1).max(100).optional(),
-    type: z.enum(["checking", "savings", "credit_card", "cash", "investment"]).optional(),
+    type: z.enum(["bank", "credit_card", "cash", "wallet", "investment", "loan", "other"]).optional(),
     balance: z.number().optional(),
     currency: z.string().length(3).optional(),
     description: z.string().max(500).optional(),
