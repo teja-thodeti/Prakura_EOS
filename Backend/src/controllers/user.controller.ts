@@ -1,10 +1,56 @@
 import { Response } from "express";
+import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { User, UserProfile } from "../models";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ok, fail } from "../utils/response";
 import { AuthRequest } from "../types";
 import { env } from "../config/env";
+
+// ========== Validation Schemas ==========
+const addressSchema = z
+  .object({
+    line1: z.string().max(200).optional(),
+    line2: z.string().max(200).optional(),
+    city: z.string().max(100).optional(),
+    state: z.string().max(100).optional(),
+    postalCode: z.string().max(20).optional(),
+    country: z.string().max(100).optional(),
+  })
+  .passthrough()
+  .optional();
+
+export const updateProfileSchema = z.object({
+  body: z.object({
+    name: z.string().min(2).max(120).optional(),
+    phone: z.string().max(20).optional(),
+    dateOfBirth: z.string().datetime().optional(),
+    currency: z.string().min(3).max(20).optional(),
+    locale: z.string().optional(),
+    timezone: z.string().optional(),
+    avatarUrl: z.string().url().optional(),
+    address: z.union([addressSchema, z.string().max(500)]).optional(),
+    occupation: z.string().max(100).optional(),
+    monthlyIncome: z.number().nonnegative().optional(),
+    notificationPreferences: z.record(z.boolean()).optional(),
+  }),
+});
+
+export const changePasswordSchema = z.object({
+  body: z.object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(8),
+  }),
+});
+
+export const updateOnboardingSchema = z.object({
+  body: z.object({
+    completed: z.boolean().optional(),
+    step: z.number().optional(),
+    goals: z.array(z.string()).optional(),
+    plan: z.string().optional(),
+  }),
+});
 
 export const getProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   const user = await User.findById(req.user!.id);

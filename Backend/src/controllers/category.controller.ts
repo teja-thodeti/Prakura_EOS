@@ -1,8 +1,52 @@
 import { Response } from "express";
+import { z } from "zod";
 import { Category, Subcategory } from "../models";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ok, created, fail } from "../utils/response";
 import { AuthRequest } from "../types";
+
+// ========== Validation Schemas ==========
+export const createCategorySchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(100),
+    kind: z.enum(["income", "expense"]),
+    icon: z.string().optional(),
+    color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+    description: z.string().max(500).optional(),
+  }),
+});
+
+export const updateCategorySchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(100).optional(),
+    kind: z.enum(["income", "expense"]).optional(),
+    icon: z.string().optional(),
+    color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+    description: z.string().max(500).optional(),
+  }),
+});
+
+export const createSubcategorySchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(100),
+    category: z.string(),
+    icon: z.string().optional(),
+    color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+    description: z.string().max(500).optional(),
+  }),
+});
+
+export const listCategoriesSchema = z.object({
+  query: z.object({
+    kind: z.enum(["income", "expense"]).optional(),
+  }),
+});
+
+export const listSubcategoriesSchema = z.object({
+  query: z.object({
+    category: z.string().optional(),
+  }),
+});
 
 export const listCategories = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { kind } = req.query;

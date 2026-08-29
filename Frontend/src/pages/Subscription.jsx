@@ -1,4 +1,13 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import {
+  listPlans,
+  getCurrentSubscription,
+  subscribeToPlan as apiSubscribeToPlan,
+  cancelSubscription as apiCancelSubscription,
+  listInvoices,
+} from "../api/subscriptions";
 import "../styles/Dashboard.css";
 import "../styles/Transactions.css";
 import "../styles/Subscription.css";
@@ -199,13 +208,10 @@ const FEATURES = [
   "Multi-currency accounts",
 ];
 
-const PLANS = [
-  { key: "trial", name: "15-day Free Trial", price: 0, priceSuffix: "", cycle: "15 days, no card required" },
-  { key: "quarterly", name: "Basic Quarterly", price: 49, priceSuffix: "/ 3 months", cycle: "Billed every 3 months" },
-  { key: "annual", name: "Basic Annual", price: 99, priceSuffix: "/ year", cycle: "Billed yearly", badge: "Best Value" },
-];
+/* Default plan set shown before the real plans have loaded from the API. */
+const FALLBACK_PLANS = [];
 
-const TODAY = "2026-08-27";
+const TODAY = new Date().toISOString().slice(0, 10);
 
 function addMonths(dateISO, n) {
   const d = new Date(dateISO + "T00:00:00");
@@ -215,6 +221,11 @@ function addMonths(dateISO, n) {
 function addYears(dateISO, n) {
   const d = new Date(dateISO + "T00:00:00");
   d.setFullYear(d.getFullYear() + n);
+  return d.toISOString().slice(0, 10);
+}
+function addDays15(dateISO) {
+  const d = new Date(dateISO + "T00:00:00");
+  d.setDate(d.getDate() + 15);
   return d.toISOString().slice(0, 10);
 }
 function daysBetween(fromISO, toISO) {
@@ -227,37 +238,125 @@ function formatDate(iso) {
   const d = new Date(iso + "T00:00:00");
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
-function planMeta(key) {
-  return PLANS.find((p) => p.key === key);
-}
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
-
-/* Seed: user is 7 days into their 15-day free trial, no invoices yet. */
-const SEED_SUBSCRIPTION = {
-  plan: "trial",
-  status: "trialing",
-  trialStartedAt: "2026-08-20",
-  trialEndsAt: "2026-09-04",
-  renewsAt: null,
-  autoRenew: true,
-  paymentMethod: null,
-};
 
 /* ---------------------------------------------------------------- */
 /* Main page                                                         */
 /* ---------------------------------------------------------------- */
 
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
+
 export default function Subscription() {
   const [active] = useState("Subscription");
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const handleNavigate = (label) => {
+    const route = NAV_ROUTES[label];
+    if (route) navigate(route);
+  };
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
   const [openMenu, setOpenMenu] = useState(null);
   const wrapRef = useRef(null);
 
-  const [subscription, setSubscription] = useState(SEED_SUBSCRIPTION);
+  const [plans, setPlans] = useState(FALLBACK_PLANS);
+  const [subscription, setSubscription] = useState({
+    plan: null,
+    status: "trialing",
+    trialStartedAt: TODAY,
+    trialEndsAt: addDays15(TODAY),
+    renewsAt: null,
+    autoRenew: true,
+    paymentMethod: null,
+    subscriptionId: null,
+  });
   const [invoices, setInvoices] = useState([]);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const planMeta = (key) => plans.find((p) => p.key === key);
+
+  const loadAll = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [plansData, currentSub, invoiceData] = await Promise.all([
+        listPlans(),
+        getCurrentSubscription().catch(() => null),
+        listInvoices().catch(() => []),
+      ]);
+
+      const mappedPlans = plansData.map((p) => ({
+        key: p._id,
+        planKey: p.key,
+        name: p.name,
+        price: p.price,
+        priceSuffix: p.cadence === "yearly" ? "/ year" : p.price === 0 ? "" : "/ month",
+        cycle: p.price === 0 ? "Free, no card required" : `Billed ${p.cadence}`,
+        badge: p.isHighlighted ? "Best Value" : undefined,
+      }));
+      setPlans(mappedPlans);
+
+      if (currentSub && currentSub.plan) {
+        setSubscription({
+          plan: currentSub.plan._id,
+          status: currentSub.status === "trialing" ? "trialing" : "active",
+          trialStartedAt: currentSub.currentPeriodStart,
+          trialEndsAt: currentSub.trialEndsAt || currentSub.currentPeriodStart,
+          renewsAt: currentSub.currentPeriodEnd,
+          autoRenew: !currentSub.cancelAtPeriodEnd,
+          paymentMethod: "Card",
+          subscriptionId: currentSub._id,
+        });
+      } else {
+        const freePlan = mappedPlans.find((p) => p.price === 0) || mappedPlans[0];
+        setSubscription({
+          plan: freePlan?.key || null,
+          status: "trialing",
+          trialStartedAt: TODAY,
+          trialEndsAt: addDays15(TODAY),
+          renewsAt: null,
+          autoRenew: true,
+          paymentMethod: null,
+          subscriptionId: null,
+        });
+      }
+
+      setInvoices(
+        invoiceData.map((inv) => ({
+          id: inv._id,
+          date: (inv.issuedAt || inv.createdAt || "").slice(0, 10),
+          plan: inv.lineItems?.[0]?.description || "Subscription",
+          amount: inv.total,
+          status: inv.status === "paid" ? "Paid" : inv.status,
+        }))
+      );
+    } catch (err) {
+      setError(err.message || "Unable to load subscription data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
 
   const toggleMenu = (name) => setOpenMenu((cur) => (cur === name ? null : name));
 
@@ -276,28 +375,29 @@ export default function Subscription() {
   );
   const trialDaysUsed = 15 - trialDaysLeft;
 
-  const currentPlanMeta = planMeta(subscription.plan);
+  const currentPlanMeta = planMeta(subscription.plan) || plans[0];
 
-  const completeCheckout = (planKey, paymentMethod) => {
-    const renewsAt = planKey === "quarterly" ? addMonths(TODAY, 3) : addYears(TODAY, 1);
-    const plan = planMeta(planKey);
-    setSubscription({
-      plan: planKey,
-      status: "active",
-      trialStartedAt: subscription.trialStartedAt,
-      trialEndsAt: subscription.trialEndsAt,
-      renewsAt,
-      autoRenew: true,
-      paymentMethod,
-    });
-    setInvoices((list) => [
-      { id: uid(), date: TODAY, plan: plan.name, amount: plan.price, status: "Paid" },
-      ...list,
-    ]);
+  const completeCheckout = async (planKey, paymentMethod) => {
+    try {
+      await apiSubscribeToPlan(planKey, (paymentMethod || "card").toLowerCase());
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Unable to complete checkout");
+    }
+    setCheckoutPlan(null);
   };
 
-  const confirmCancelRenewal = () => {
-    setSubscription((s) => ({ ...s, autoRenew: false }));
+  const confirmCancelRenewal = async () => {
+    try {
+      if (subscription.subscriptionId) {
+        await apiCancelSubscription(subscription.subscriptionId);
+        await loadAll();
+      } else {
+        setSubscription((s) => ({ ...s, autoRenew: false }));
+      }
+    } catch (err) {
+      setError(err.message || "Unable to cancel renewal");
+    }
     setCancelConfirmOpen(false);
   };
 
@@ -314,7 +414,7 @@ export default function Subscription() {
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ label, icon: ItemIcon }) => (
-            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`}>
+            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`} onClick={() => handleNavigate(label)}>
               <ItemIcon size={16} />
               <span>{label}</span>
             </button>
@@ -322,7 +422,7 @@ export default function Subscription() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => handleNavigate("Settings")}>
             <IconSettings size={16} />
             <span>Settings</span>
           </button>
@@ -376,8 +476,8 @@ export default function Subscription() {
               {openMenu === "apps" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Quick links</p>
-                  <button type="button" className="dropdown-item"><IconReceipt size={14} /> Bills</button>
-                  <button type="button" className="dropdown-item"><IconBarChart size={14} /> Reports</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Bills")}><IconReceipt size={14} /> Bills</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Reports")}><IconBarChart size={14} /> Reports</button>
                 </div>
               )}
             </div>
@@ -390,10 +490,10 @@ export default function Subscription() {
               {openMenu === "avatar" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Prakura account</p>
-                  <button type="button" className="dropdown-item"><IconUser size={14} /> Profile</button>
-                  <button type="button" className="dropdown-item"><IconSettings size={14} /> Account settings</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}><IconUser size={14} /> Profile</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}><IconSettings size={14} /> Account settings</button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger"><IconLogOut size={14} /> Log out</button>
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}><IconLogOut size={14} /> Log out</button>
                 </div>
               )}
             </div>
@@ -404,6 +504,13 @@ export default function Subscription() {
           <div className="dash-title-row">
             <h1>Subscription</h1>
           </div>
+
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
+          {loading && <p className="notif-sub">Loading subscription...</p>}
 
           {/* ---------------- Current status ---------------- */}
           <div className={`sub-status-card sub-status-${subscription.status === "trialing" ? "trial" : subscription.autoRenew ? "active" : "canceling"}`}>
@@ -433,7 +540,7 @@ export default function Subscription() {
               )}
             </div>
             {subscription.status === "trialing" && (
-              <button type="button" className="signin-btn sub-status-cta" onClick={() => setCheckoutPlan(planMeta("annual"))}>
+              <button type="button" className="signin-btn sub-status-cta" onClick={() => setCheckoutPlan(plans.find((p) => p.price > 0) || plans[0])}>
                 Upgrade now
               </button>
             )}
@@ -442,12 +549,12 @@ export default function Subscription() {
           {/* ---------------- Plans ---------------- */}
           <h2 className="sub-section-title">Choose your plan</h2>
           <div className="sub-plans-grid">
-            {PLANS.map((plan) => (
+            {plans.map((plan) => (
               <PlanCard
                 key={plan.key}
                 plan={plan}
                 isCurrent={subscription.plan === plan.key}
-                trialAlreadyUsed={plan.key === "trial" && subscription.plan !== "trial"}
+                trialAlreadyUsed={plan.price === 0 && subscription.status !== "trialing"}
                 onChoose={() => setCheckoutPlan(plan)}
               />
             ))}

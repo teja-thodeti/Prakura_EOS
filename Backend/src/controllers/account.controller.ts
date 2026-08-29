@@ -1,8 +1,37 @@
 import { Response } from "express";
+import { z } from "zod";
 import { Account, Transaction } from "../models";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ok, created, fail } from "../utils/response";
 import { AuthRequest } from "../types";
+
+// ========== Validation Schemas ==========
+export const createAccountSchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(100),
+    type: z.enum(["checking", "savings", "credit_card", "cash", "investment"]),
+    balance: z.number().optional(),
+    currency: z.string().length(3).optional(),
+    isArchived: z.boolean().optional(),
+    description: z.string().max(500).optional(),
+  }),
+});
+
+export const updateAccountSchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(100).optional(),
+    type: z.enum(["checking", "savings", "credit_card", "cash", "investment"]).optional(),
+    balance: z.number().optional(),
+    currency: z.string().length(3).optional(),
+    description: z.string().max(500).optional(),
+  }),
+});
+
+export const archiveAccountSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+});
 
 export const listAccounts = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { includeArchived } = req.query;

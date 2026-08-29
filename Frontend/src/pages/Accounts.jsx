@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import {
+  listAccounts as apiListAccounts,
+  createAccount as apiCreateAccount,
+  updateAccount as apiUpdateAccount,
+  archiveAccount as apiArchiveAccount,
+} from "../api/accounts";
 import "../styles/Dashboard.css";
 import "../styles/Accounts.css";
 
@@ -296,12 +304,65 @@ function applyTransactionDelta(accounts, accountId, delta) {
 /* Main page                                                         */
 /* ---------------------------------------------------------------- */
 
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
+
+/* Frontend account "type" labels map to the backend's fixed enum. Salary
+   Account and Custom/Investment don't have a 1:1 backend equivalent, so they
+   fold into the nearest enum value on save and are shown using that same
+   label when read back. */
+const TYPE_TO_BACKEND = {
+  Bank: "bank",
+  "Cash Wallet": "cash",
+  "Credit Card": "credit_card",
+  "Digital Wallet": "wallet",
+  "Salary Account": "bank",
+  "Loan Account": "loan",
+  Custom: "other",
+};
+const BACKEND_TO_TYPE = {
+  bank: "Bank",
+  cash: "Cash Wallet",
+  credit_card: "Credit Card",
+  wallet: "Digital Wallet",
+  loan: "Loan Account",
+  investment: "Custom",
+  other: "Custom",
+};
+
+function apiAccountToLocal(a) {
+  return {
+    id: a._id,
+    name: a.name,
+    type: BACKEND_TO_TYPE[a.type] || "Custom",
+    currency: a.currency || "INR",
+    openingBalance: a.balance,
+    netMovement: 0, // backend already keeps `balance` current via transactions
+    includeInTotal: true, // not tracked server-side; defaults on each load
+    archived: !!a.isArchived,
+    lastUpdated: (a.updatedAt || a.createdAt || "").slice(0, 10),
+    notes: a.notes || "",
+  };
+}
+
 export default function Accounts() {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
   const [active] = useState("Accounts");
   const [openMenu, setOpenMenu] = useState(null);
   const wrapRef = useRef(null);
 
-  const [accounts, setAccounts] = useState(SEED_ACCOUNTS);
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -311,6 +372,33 @@ export default function Accounts() {
   const [archiveTarget, setArchiveTarget] = useState(null);
 
   const toggleMenu = (name) => setOpenMenu((cur) => (cur === name ? null : name));
+
+  const handleNavigate = (label) => {
+    const route = NAV_ROUTES[label];
+    if (route) navigate(route);
+  };
+
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
+
+  const loadAccounts = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await apiListAccounts({ includeArchived: "true" });
+      setAccounts(data.map(apiAccountToLocal));
+    } catch (err) {
+      setError(err.message || "Unable to load accounts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAccounts();
+  }, []);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -353,36 +441,27 @@ export default function Accounts() {
     });
   const closeDrawer = () => setDrawer(null);
 
-  const saveAccount = (draft) => {
-    const today = new Date().toISOString().slice(0, 10);
+  const saveAccount = async (draft) => {
     const openingBalance = Number(draft.openingBalance);
+    const payload = {
+      name: draft.name,
+      type: TYPE_TO_BACKEND[draft.type] || "other",
+      currency: draft.currency,
+      balance: openingBalance,
+      notes: draft.notes,
+    };
 
-    if (draft.id) {
-      setAccounts((list) =>
-        list.map((a) =>
-          a.id === draft.id
-            ? { ...a, name: draft.name, type: draft.type, currency: draft.currency, openingBalance, includeInTotal: draft.includeInTotal, notes: draft.notes, lastUpdated: today }
-            : a
-        )
-      );
-    } else {
-      setAccounts((list) => [
-        {
-          id: uid(),
-          name: draft.name,
-          type: draft.type,
-          currency: draft.currency,
-          openingBalance,
-          netMovement: 0,
-          includeInTotal: draft.includeInTotal,
-          archived: false,
-          lastUpdated: today,
-          notes: draft.notes,
-        },
-        ...list,
-      ]);
+    try {
+      if (draft.id) {
+        await apiUpdateAccount(draft.id, payload);
+      } else {
+        await apiCreateAccount(payload);
+      }
+      await loadAccounts();
+      setDrawer(null);
+    } catch (err) {
+      setError(err.message || "Unable to save account");
     }
-    setDrawer(null);
   };
 
   const toggleIncludeInTotal = (id) => {
@@ -393,11 +472,17 @@ export default function Accounts() {
   };
 
   const requestArchive = (a) => setArchiveTarget(a);
-  const confirmArchiveToggle = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    setAccounts((list) =>
-      list.map((a) => (a.id === archiveTarget.id ? { ...a, archived: !a.archived, lastUpdated: today } : a))
-    );
+  const confirmArchiveToggle = async () => {
+    try {
+      if (archiveTarget.archived) {
+        await apiUpdateAccount(archiveTarget.id, { isArchived: false });
+      } else {
+        await apiArchiveAccount(archiveTarget.id);
+      }
+      await loadAccounts();
+    } catch (err) {
+      setError(err.message || "Unable to update account");
+    }
     if (drawer && drawer.account && drawer.account.id === archiveTarget.id) setDrawer(null);
     setArchiveTarget(null);
   };
@@ -421,7 +506,7 @@ export default function Accounts() {
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ label, icon: ItemIcon }) => (
-            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`}>
+            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`} onClick={() => handleNavigate(label)}>
               <ItemIcon size={16} />
               <span>{label}</span>
             </button>
@@ -429,7 +514,7 @@ export default function Accounts() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => handleNavigate("Settings")}>
             <IconSettings size={16} />
             <span>Settings</span>
           </button>
@@ -483,8 +568,8 @@ export default function Accounts() {
               {openMenu === "apps" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Quick links</p>
-                  <button type="button" className="dropdown-item"><IconReceipt size={14} /> Bills</button>
-                  <button type="button" className="dropdown-item"><IconBarChart size={14} /> Reports</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Bills")}><IconReceipt size={14} /> Bills</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Reports")}><IconBarChart size={14} /> Reports</button>
                 </div>
               )}
             </div>
@@ -497,10 +582,10 @@ export default function Accounts() {
               {openMenu === "avatar" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Prakura account</p>
-                  <button type="button" className="dropdown-item"><IconUser size={14} /> Profile</button>
-                  <button type="button" className="dropdown-item"><IconSettings size={14} /> Account settings</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}><IconUser size={14} /> Profile</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}><IconSettings size={14} /> Account settings</button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger"><IconLogOut size={14} /> Log out</button>
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}><IconLogOut size={14} /> Log out</button>
                 </div>
               )}
             </div>
@@ -514,6 +599,13 @@ export default function Accounts() {
               <IconPlus size={15} /> Add Account
             </button>
           </div>
+
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
+          {loading && <p className="notif-sub">Loading accounts...</p>}
 
           {/* ---------------- Total balance summary ---------------- */}
           <div className="acc-summary-card">
@@ -731,6 +823,9 @@ function AccountCard({ account: a, onEdit, onToggleInclude, onArchiveToggle }) {
   );
 }
 
+/* ---------------------------------------------------------------- */
+/* Add / edit drawer                                                 */
+/* ---------------------------------------------------------------- */
 
 function AccountDrawer({ mode, account, onClose, onSave, onArchive }) {
   const [draft, setDraft] = useState(account);

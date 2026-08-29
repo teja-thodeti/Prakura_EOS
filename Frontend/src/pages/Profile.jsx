@@ -1,4 +1,7 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import React, { useState, useEffect, useRef } from "react";
+import { getProfile, updateProfile } from "../api/users";
 import "../styles/Dashboard.css";
 import "../styles/Transactions.css";
 import "../styles/Settings.css";
@@ -159,18 +162,50 @@ const NOTIFICATIONS = [
   { title: "Bill reminder", sub: "Internet bill is due tomorrow." },
 ];
 
+const CURRENCY_DISPLAY = {
+  INR: "INR (₹)",
+  USD: "USD ($)",
+  EUR: "EUR (€)",
+  GBP: "GBP (£)",
+};
+function currencyToDisplay(code) {
+  return CURRENCY_DISPLAY[code] || code || "INR (₹)";
+}
+function currencyFromDisplay(display) {
+  return (display || "").split(" ")[0] || "INR";
+}
+
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
+
 export default function Profile() {
+  const navigate = useNavigate();
+  const { signOut, refresh } = useAuth();
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
   const [openMenu, setOpenMenu] = useState(null);
   const wrapRef = useRef(null);
 
   const [profile, setProfile] = useState({
-    fullName: "Ravi Kumar",
-    email: "ravi.kumar@example.com",
-    mobile: "+91 98765 43210",
-    country: "India",
+    fullName: "",
+    email: "",
+    mobile: "",
+    country: "",
     currency: "INR (₹)",
     timeZone: "Asia/Kolkata (IST, UTC+5:30)",
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(profile);
@@ -185,6 +220,36 @@ export default function Profile() {
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await getProfile();
+        if (cancelled) return;
+        const mapped = {
+          fullName: data.user?.name || "",
+          email: data.user?.email || "",
+          mobile: data.profile?.phone || "",
+          country: data.profile?.address?.country || "",
+          currency: currencyToDisplay(data.profile?.currency),
+          timeZone: data.profile?.timezone || "Asia/Kolkata (IST, UTC+5:30)",
+        };
+        setProfile(mapped);
+        setDraft(mapped);
+      } catch (err) {
+        if (!cancelled) setError(err.message || "Unable to load profile");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const startEdit = () => {
@@ -208,12 +273,26 @@ export default function Profile() {
     return Object.keys(e).length === 0;
   };
 
-  const save = () => {
+  const save = async () => {
     if (!validate()) return;
-    setProfile(draft);
-    setIsEditing(false);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2500);
+    try {
+      // Note: email changes aren't sent — the API doesn't expose an
+      // email-change endpoint, so only name/phone/currency/etc persist.
+      await updateProfile({
+        name: draft.fullName,
+        phone: draft.mobile,
+        currency: currencyFromDisplay(draft.currency),
+        timezone: draft.timeZone,
+        address: { country: draft.country },
+      });
+      await refresh();
+      setProfile(draft);
+      setIsEditing(false);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err.message || "Unable to save profile");
+    }
   };
 
   const initials = profile.fullName
@@ -244,7 +323,12 @@ export default function Profile() {
 
         <nav className="sidebar-nav">
           {navItems.map(([label, NavIcon]) => (
-            <button type="button" className="nav-item" key={label}>
+            <button
+              type="button"
+              className={`nav-item ${label === "Profile" ? "nav-item-active" : ""}`}
+              key={label}
+              onClick={() => navigate(NAV_ROUTES[label] || "/Dashboard")}
+            >
               <NavIcon size={16} />
               <span>{label}</span>
             </button>
@@ -252,7 +336,7 @@ export default function Profile() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => navigate("/Settings")}>
             <IconSettings size={16} />
             <span>Settings</span>
           </button>
@@ -322,7 +406,7 @@ export default function Profile() {
                   <button type="button" className="dropdown-item profile-menu-active"><IconUser size={14} /> Profile</button>
                   <button type="button" className="dropdown-item"><IconSettings size={14} /> Account settings</button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger"><IconLogOut size={14} /> Log out</button>
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}><IconLogOut size={14} /> Log out</button>
                 </div>
               )}
             </div>
@@ -333,6 +417,13 @@ export default function Profile() {
           <div className="dash-title-row">
             <h1>Profile</h1>
           </div>
+
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
+          {loading && <p className="notif-sub">Loading profile...</p>}
 
           <div className="profile-sections">
             <section className="profile-hero-card">

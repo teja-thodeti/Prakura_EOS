@@ -1,4 +1,15 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { listAccounts } from "../api/accounts";
+import { listCategories, createCategory } from "../api/categories";
+import {
+  listBills,
+  createBill as apiCreateBill,
+  updateBill as apiUpdateBill,
+  deleteBill as apiDeleteBill,
+  payBill as apiPayBill,
+} from "../api/bills";
 import "../styles/Dashboard.css";
 import "../styles/Transactions.css";
 import "../styles/Bills.css";
@@ -280,7 +291,22 @@ const ACCOUNTS = ["HDFC Bank •• 4521", "Cash Wallet", "ICICI Credit Card •
 
 /* Fixed reference "today" so the seeded bills line up predictably with
    overdue / due-today / due-soon / upcoming examples. */
-const TODAY = "2026-08-27";
+const TODAY = new Date().toISOString().slice(0, 10);
+
+const FREQ_TO_BACKEND = {
+  "One-time": "once",
+  Weekly: "weekly",
+  Monthly: "monthly",
+  Quarterly: "quarterly",
+  Yearly: "yearly",
+};
+const FREQ_TO_FRONTEND = {
+  once: "One-time",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+  yearly: "Yearly",
+};
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -383,12 +409,94 @@ function emptyDraft() {
 /* Main page                                                         */
 /* ---------------------------------------------------------------- */
 
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
+
 export default function Bills() {
   const [active] = useState("Bills");
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const handleNavigate = (label) => {
+    const route = NAV_ROUTES[label];
+    if (route) navigate(route);
+  };
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
   const [openMenu, setOpenMenu] = useState(null);
   const wrapRef = useRef(null);
 
-  const [bills, setBills] = useState(SEED_BILLS);
+  const [bills, setBills] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [accountOptions, setAccountOptions] = useState([]);
+  const [categoryNames, setCategoryNames] = useState([]);
+  const categoryIdByNameRef = useRef({});
+
+  const accountIdByName = useMemo(() => {
+    const map = {};
+    accountOptions.forEach((a) => (map[a.name] = a.id));
+    return map;
+  }, [accountOptions]);
+
+  const mapBill = (b) => ({
+    id: b._id,
+    name: b.name,
+    type: BILL_TYPES.find((t) => t.label === b.category?.name)?.key || "Custom Bill",
+    amount: b.amount,
+    dueDate: (b.dueDate || "").slice(0, 10),
+    frequency: FREQ_TO_FRONTEND[b.frequency] || "Monthly",
+    category: b.category?.name || "",
+    account: b.account?.name || "",
+    reminderDays: b.reminderDaysBefore,
+    notes: b.notes || "",
+    paid: b.status === "paid",
+    lastPaidDate: b.lastPaidAt ? b.lastPaidAt.slice(0, 10) : null,
+    snoozedUntil: null,
+  });
+
+  const loadAll = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [accs, cats, billsData] = await Promise.all([
+        listAccounts(),
+        listCategories("expense"),
+        listBills(),
+      ]);
+      setAccountOptions(accs.map((a) => ({ id: a._id, name: a.name })));
+      const catMap = {};
+      cats.forEach((c) => (catMap[c.name] = c._id));
+      categoryIdByNameRef.current = catMap;
+      setCategoryNames(cats.map((c) => c.name));
+      setBills(billsData.map(mapBill));
+    } catch (err) {
+      setError(err.message || "Unable to load bills");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  async function resolveCategoryId(name) {
+    if (!name) return undefined;
+    if (categoryIdByNameRef.current[name]) return categoryIdByNameRef.current[name];
+    const created = await createCategory({ name, kind: "expense" });
+    categoryIdByNameRef.current[name] = created._id;
+    return created._id;
+  }
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -456,56 +564,54 @@ export default function Bills() {
   const openEdit = (b) => setDrawer({ mode: "edit", bill: { ...b, amount: String(b.amount) } });
   const closeDrawer = () => setDrawer(null);
 
-  const saveBill = (draft) => {
+  const saveBill = async (draft) => {
     const amount = Number(draft.amount);
     const reminderDays = Number(draft.reminderDays);
-    if (draft.id) {
-      setBills((list) =>
-        list.map((b) =>
-          b.id === draft.id
-            ? { ...b, name: draft.name, type: draft.type, amount, dueDate: draft.dueDate, frequency: draft.frequency, category: draft.category, account: draft.account, reminderDays, notes: draft.notes }
-            : b
-        )
-      );
-    } else {
-      setBills((list) => [
-        {
-          id: uid(),
-          name: draft.name,
-          type: draft.type,
-          amount,
-          dueDate: draft.dueDate,
-          frequency: draft.frequency,
-          category: draft.category,
-          account: draft.account,
-          reminderDays,
-          notes: draft.notes,
-          paid: false,
-          lastPaidDate: null,
-          snoozedUntil: null,
-        },
-        ...list,
-      ]);
+    try {
+      const categoryId = await resolveCategoryId(draft.category);
+      const payload = {
+        name: draft.name,
+        category: categoryId,
+        account: accountIdByName[draft.account],
+        amount,
+        dueDate: draft.dueDate,
+        frequency: FREQ_TO_BACKEND[draft.frequency] || "monthly",
+        reminderDaysBefore: reminderDays,
+        notes: draft.notes,
+      };
+
+      if (draft.id) {
+        await apiUpdateBill(draft.id, payload);
+      } else {
+        await apiCreateBill(payload);
+      }
+      await loadAll();
+      setDrawer(null);
+    } catch (err) {
+      setError(err.message || "Unable to save bill");
     }
-    setDrawer(null);
   };
 
-  const markPaid = (bill) => {
-    setBills((list) =>
-      list.map((b) => {
-        if (b.id !== bill.id) return b;
-        if (b.frequency === "One-time") return { ...b, paid: true, lastPaidDate: TODAY, snoozedUntil: null };
-        return { ...b, paid: false, lastPaidDate: TODAY, dueDate: addCycle(b.dueDate, b.frequency), snoozedUntil: null };
-      })
-    );
+  const markPaid = async (bill) => {
+    try {
+      await apiPayBill(bill.id, accountIdByName[bill.account]);
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Unable to mark bill as paid");
+    }
   };
 
-  const skipCycle = (bill) => {
-    setBills((list) =>
-      list.map((b) => (b.id === bill.id ? { ...b, dueDate: addCycle(b.dueDate, b.frequency), snoozedUntil: null } : b))
-    );
+  const skipCycle = async (bill) => {
+    try {
+      await apiUpdateBill(bill.id, { dueDate: addCycle(bill.dueDate, bill.frequency) });
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Unable to update bill");
+    }
   };
 
+  // Snooze is a personal reminder nudge with no server-side equivalent, so it
+  // stays local-only (it resets on reload rather than persisting).
   const snoozeBill = (bill, days) => {
     setBills((list) => list.map((b) => (b.id === bill.id ? { ...b, snoozedUntil: addDays(TODAY, days) } : b)));
     setSnoozeMenuId(null);
@@ -517,8 +623,13 @@ export default function Bills() {
   };
 
   const requestDelete = (b) => setDeleteTarget(b);
-  const confirmDelete = () => {
-    setBills((list) => list.filter((b) => b.id !== deleteTarget.id));
+  const confirmDelete = async () => {
+    try {
+      await apiDeleteBill(deleteTarget.id);
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Unable to delete bill");
+    }
     setDeleteTarget(null);
   };
 
@@ -542,7 +653,7 @@ export default function Bills() {
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ label, icon: ItemIcon }) => (
-            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`}>
+            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`} onClick={() => handleNavigate(label)}>
               <ItemIcon size={16} />
               <span>{label}</span>
             </button>
@@ -550,7 +661,7 @@ export default function Bills() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => handleNavigate("Settings")}>
             <IconSettings size={16} />
             <span>Settings</span>
           </button>
@@ -604,8 +715,8 @@ export default function Bills() {
               {openMenu === "apps" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Quick links</p>
-                  <button type="button" className="dropdown-item"><IconReceipt size={14} /> Bills</button>
-                  <button type="button" className="dropdown-item"><IconBarChart size={14} /> Reports</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Bills")}><IconReceipt size={14} /> Bills</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Reports")}><IconBarChart size={14} /> Reports</button>
                 </div>
               )}
             </div>
@@ -618,10 +729,10 @@ export default function Bills() {
               {openMenu === "avatar" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Prakura account</p>
-                  <button type="button" className="dropdown-item"><IconUser size={14} /> Profile</button>
-                  <button type="button" className="dropdown-item"><IconSettings size={14} /> Account settings</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}><IconUser size={14} /> Profile</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}><IconSettings size={14} /> Account settings</button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger"><IconLogOut size={14} /> Log out</button>
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}><IconLogOut size={14} /> Log out</button>
                 </div>
               )}
             </div>
@@ -635,6 +746,13 @@ export default function Bills() {
               <IconPlus size={15} /> Add Bill
             </button>
           </div>
+
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
+          {loading && <p className="notif-sub">Loading bills...</p>}
 
           {/* ---------------- Dashboard stats ---------------- */}
           <div className="bill-stats-grid">
@@ -728,7 +846,14 @@ export default function Bills() {
 
       {/* ---------------- Add / Edit drawer ---------------- */}
       {drawer && (
-        <BillDrawer mode={drawer.mode} bill={drawer.bill} onClose={closeDrawer} onSave={saveBill} />
+        <BillDrawer
+          mode={drawer.mode}
+          bill={drawer.bill}
+          categoryOptions={categoryNames}
+          accountOptions={accountOptions}
+          onClose={closeDrawer}
+          onSave={saveBill}
+        />
       )}
 
       {/* ---------------- Delete confirmation ---------------- */}
@@ -878,7 +1003,7 @@ function BillCard({ bill: b, snoozeOpen, onToggleSnoozeMenu, onSnooze, onClearSn
 /* Add / edit drawer                                                 */
 /* ---------------------------------------------------------------- */
 
-function BillDrawer({ mode, bill, onClose, onSave }) {
+function BillDrawer({ mode, bill, categoryOptions, accountOptions, onClose, onSave }) {
   const [draft, setDraft] = useState(bill);
   const [errors, setErrors] = useState({});
   const isEdit = mode === "edit";
@@ -1008,7 +1133,7 @@ function BillDrawer({ mode, bill, onClose, onSave }) {
                   <span className="input-icon"><IconPieChart size={16} /></span>
                   <select id="bill-category" className="tx-select" value={draft.category} onChange={(e) => update("category", e.target.value)}>
                     <option value="" disabled>Select category</option>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <span className="tx-select-chevron"><IconChevronDown size={15} /></span>
                 </div>
@@ -1020,7 +1145,7 @@ function BillDrawer({ mode, bill, onClose, onSave }) {
                   <span className="input-icon"><IconWallet size={16} /></span>
                   <select id="bill-account" className="tx-select" value={draft.account} onChange={(e) => update("account", e.target.value)}>
                     <option value="" disabled>Select account</option>
-                    {ACCOUNTS.map((a) => <option key={a} value={a}>{a}</option>)}
+                    {accountOptions.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
                   </select>
                   <span className="tx-select-chevron"><IconChevronDown size={15} /></span>
                 </div>

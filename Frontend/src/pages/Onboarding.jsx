@@ -1,4 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { updateProfile, updateOnboarding } from "../api/users";
 import "../styles/Onboarding.css";
 
 /* ---------------------------------------------------------------- */
@@ -115,6 +118,8 @@ const IconArrowLeft = (p) => (
 const COUNTRIES = ["India", "United States", "United Kingdom", "United Arab Emirates", "Singapore", "Australia", "Canada", "Other"];
 const CURRENCIES = ["INR (₹)", "USD ($)", "EUR (€)", "GBP (£)", "AED (د.إ)", "SGD ($)", "AUD ($)", "CAD ($)"];
 const TIMEZONES = ["IST (UTC+5:30)", "PST (UTC-8:00)", "EST (UTC-5:00)", "GST (UTC+4:00)", "SGT (UTC+8:00)", "AEST (UTC+10:00)", "GMT (UTC+0:00)"];
+
+const normalizeCurrencyCode = (value) => (value || "").split(" ")[0].trim().toUpperCase() || "INR";
 
 const INCOME_SOURCES = ["Salary", "Freelance", "Business", "Investments", "Other"];
 const INCOME_RANGES = [
@@ -251,7 +256,11 @@ function CheckboxChipGroup({ options, values, onToggle, columns = 2 }) {
 /* Main component                                                    */
 /* ---------------------------------------------------------------- */
 
-export default function Onboarding({ onFinishTrial, onGoToCheckout }) {
+export default function Onboarding() {
+  const navigate = useNavigate();
+  const { refresh } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [step, setStep] = useState(0);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [errors, setErrors] = useState({});
@@ -312,17 +321,58 @@ export default function Onboarding({ onFinishTrial, onGoToCheckout }) {
   };
   const goBack = () => setStep((s) => Math.max(s - 1, 0));
 
-  const handleStartFreeTrial = () => {
-    // Marks onboarding complete + starts the 15-day trial.
-    // TODO: wire up to POST /onboarding/complete { plan: 'free_trial', ...form }
-    if (onFinishTrial) onFinishTrial(form);
+  const handleStartFreeTrial = async () => {
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      await updateProfile({
+        name: form.fullName,
+        phone: form.mobile,
+        currency: normalizeCurrencyCode(form.currency),
+        timezone: form.timezone,
+        address: { country: form.country },
+      });
+      await updateOnboarding({
+        completed: true,
+        step: STEPS.length,
+        goals: form.financialGoals,
+        plan: "free",
+      });
+      await refresh();
+      navigate("/Dashboard", { replace: true });
+    } catch (err) {
+      setSubmitError(err.message || "Unable to finish onboarding. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleChooseSubscription = (planKey) => {
-    // Subscription is NOT activated here — user is routed to checkout,
-    // and activation only happens after payment is verified server-side.
-    // TODO: wire up to navigate to /checkout?plan=<planId>
-    if (onGoToCheckout) onGoToCheckout(planKey, form);
+  const handleChooseSubscription = async (planKey) => {
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      await updateProfile({
+        name: form.fullName,
+        phone: form.mobile,
+        currency: normalizeCurrencyCode(form.currency),
+        timezone: form.timezone,
+        address: { country: form.country },
+      });
+      await updateOnboarding({
+        completed: true,
+        step: STEPS.length,
+        goals: form.financialGoals,
+        plan: planKey,
+      });
+      await refresh();
+      // Activation happens after payment is verified on the Subscription
+      // page — onboarding only records the user's chosen plan intent here.
+      navigate("/Subscription", { replace: true });
+    } catch (err) {
+      setSubmitError(err.message || "Unable to continue to checkout. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -341,11 +391,17 @@ export default function Onboarding({ onFinishTrial, onGoToCheckout }) {
           {step === 2 && <StepAccounts form={form} update={update} toggleInList={toggleInList} />}
           {step === 3 && <StepPreferences form={form} update={update} toggleInList={toggleInList} />}
           {step === 4 && (
-            <StepPlan
-              onOpenCompare={() => setShowPlanModal(true)}
-              onStartFreeTrial={handleStartFreeTrial}
-              onChooseSubscription={handleChooseSubscription}
-            />
+            <>
+              {submitError && (
+                <p className="ob-error" style={{ marginBottom: 10 }}>{submitError}</p>
+              )}
+              <StepPlan
+                onOpenCompare={() => setShowPlanModal(true)}
+                onStartFreeTrial={handleStartFreeTrial}
+                onChooseSubscription={handleChooseSubscription}
+                submitting={submitting}
+              />
+            </>
           )}
         </div>
 
@@ -570,7 +626,7 @@ function StepPreferences({ form, update, toggleInList }) {
 /* Final step — Choose your plan                                     */
 /* ---------------------------------------------------------------- */
 
-function StepPlan({ onOpenCompare, onStartFreeTrial, onChooseSubscription }) {
+function StepPlan({ onOpenCompare, onStartFreeTrial, onChooseSubscription, submitting }) {
   const [selectedPaid, setSelectedPaid] = useState("quarterly");
 
   return (
@@ -596,15 +652,16 @@ function StepPlan({ onOpenCompare, onStartFreeTrial, onChooseSubscription }) {
       </button>
 
       <div className="ob-plan-actions">
-        <button type="button" className="signin-btn ob-plan-btn" onClick={onStartFreeTrial}>
-          Start Free Trial
+        <button type="button" className="signin-btn ob-plan-btn" onClick={onStartFreeTrial} disabled={submitting}>
+          {submitting ? "Please wait..." : "Start Free Trial"}
         </button>
         <button
           type="button"
           className="ob-secondary-btn ob-plan-btn"
           onClick={() => onChooseSubscription(selectedPaid)}
+          disabled={submitting}
         >
-          Choose Subscription
+          {submitting ? "Please wait..." : "Choose Subscription"}
         </button>
       </div>
     </div>

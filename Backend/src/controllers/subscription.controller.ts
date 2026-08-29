@@ -1,9 +1,30 @@
 import { Response } from "express";
 import mongoose from "mongoose";
+import { z } from "zod";
 import { SubscriptionPlan, Subscription, Payment, Invoice } from "../models";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ok, created, fail } from "../utils/response";
 import { AuthRequest } from "../types";
+
+// ========== Validation Schemas ==========
+export const subscribeSchema = z.object({
+  body: z.object({
+    planId: z.string(),
+    method: z.string().optional(),
+  }),
+});
+
+export const cancelSubscriptionSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+});
+
+export const getInvoiceSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+});
 
 export const listPlans = asyncHandler(async (req: AuthRequest, res: Response) => {
   const plans = await SubscriptionPlan.find({ isActive: true }).sort({ price: 1 });

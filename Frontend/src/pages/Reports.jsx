@@ -1,4 +1,8 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { listTransactions } from "../api/transactions";
+import { listAccounts } from "../api/accounts";
 import "../styles/Dashboard.css";
 import "../styles/Reports.css";
 
@@ -164,77 +168,9 @@ const RING_R = 22;
 const RING_C = 2 * Math.PI * RING_R;
 const RING_OFFSET = RING_C * (1 - TRIAL_DAYS_LEFT / TRIAL_TOTAL_DAYS);
 
-const ACCOUNTS_LIST = ["HDFC Bank •• 4521", "Cash Wallet", "ICICI Credit Card •• 8890", "SBI Salary Account •• 1122", "Paytm Wallet"];
-
 const CATEGORY_COLORS = ["#2f6fed", "#6d5ff7", "#ef4444", "#16a34a", "#f59e0b", "#06b6d4", "#ec4899", "#84766b"];
 
 const MONTH_LABELS = { "2026-03": "Mar", "2026-04": "Apr", "2026-05": "May", "2026-06": "Jun", "2026-07": "Jul", "2026-08": "Aug" };
-
-/* ---------------------------------------------------------------- */
-/* Seed data                                                         */
-/* In production this should come from the same transactions store   */
-/* that powers the Transactions page, filtered server-side or via a  */
-/* shared selector — mocked locally here to demonstrate the reports. */
-/* Transfers are intentionally excluded: they move money between the */
-/* user's own accounts and are never counted as income or expense.   */
-/* ---------------------------------------------------------------- */
-
-const MOCK_TRANSACTIONS = [
-  { id: 1, type: "income", date: "2026-03-05", account: "HDFC Bank •• 4521", category: "Salary", amount: 78000 },
-  { id: 2, type: "expense", date: "2026-03-07", account: "HDFC Bank •• 4521", category: "Rent", amount: 21000 },
-  { id: 3, type: "expense", date: "2026-03-10", account: "ICICI Credit Card •• 8890", category: "Shopping", amount: 4200 },
-  { id: 4, type: "expense", date: "2026-03-12", account: "Cash Wallet", category: "Food", amount: 2600 },
-  { id: 5, type: "expense", date: "2026-03-15", account: "SBI Salary Account •• 1122", category: "Utilities", amount: 1900 },
-  { id: 6, type: "income", date: "2026-03-18", account: "HDFC Bank •• 4521", category: "Freelance", amount: 12000 },
-  { id: 7, type: "expense", date: "2026-03-20", account: "ICICI Credit Card •• 8890", category: "Subscriptions", amount: 599 },
-  { id: 8, type: "expense", date: "2026-03-24", account: "Cash Wallet", category: "Travel", amount: 1500 },
-
-  { id: 9, type: "income", date: "2026-04-05", account: "HDFC Bank •• 4521", category: "Salary", amount: 78000 },
-  { id: 10, type: "expense", date: "2026-04-06", account: "HDFC Bank •• 4521", category: "Rent", amount: 21000 },
-  { id: 11, type: "expense", date: "2026-04-09", account: "ICICI Credit Card •• 8890", category: "Shopping", amount: 3100 },
-  { id: 12, type: "expense", date: "2026-04-11", account: "Cash Wallet", category: "Food", amount: 2900 },
-  { id: 13, type: "income", date: "2026-04-14", account: "Paytm Wallet", category: "Cashback", amount: 600 },
-  { id: 14, type: "expense", date: "2026-04-16", account: "SBI Salary Account •• 1122", category: "Utilities", amount: 2050 },
-  { id: 15, type: "expense", date: "2026-04-19", account: "ICICI Credit Card •• 8890", category: "Entertainment", amount: 1200 },
-  { id: 16, type: "expense", date: "2026-04-23", account: "Cash Wallet", category: "Healthcare", amount: 850 },
-
-  { id: 17, type: "income", date: "2026-05-05", account: "HDFC Bank •• 4521", category: "Salary", amount: 80000 },
-  { id: 18, type: "expense", date: "2026-05-06", account: "HDFC Bank •• 4521", category: "Rent", amount: 21000 },
-  { id: 19, type: "expense", date: "2026-05-08", account: "ICICI Credit Card •• 8890", category: "Shopping", amount: 5400 },
-  { id: 20, type: "income", date: "2026-05-12", account: "HDFC Bank •• 4521", category: "Freelance", amount: 9000 },
-  { id: 21, type: "expense", date: "2026-05-15", account: "Cash Wallet", category: "Food", amount: 3100 },
-  { id: 22, type: "expense", date: "2026-05-18", account: "SBI Salary Account •• 1122", category: "Utilities", amount: 1980 },
-  { id: 23, type: "expense", date: "2026-05-22", account: "ICICI Credit Card •• 8890", category: "Subscriptions", amount: 599 },
-  { id: 24, type: "expense", date: "2026-05-27", account: "Cash Wallet", category: "Travel", amount: 2100 },
-
-  { id: 25, type: "income", date: "2026-06-05", account: "HDFC Bank •• 4521", category: "Salary", amount: 80000 },
-  { id: 26, type: "expense", date: "2026-06-06", account: "HDFC Bank •• 4521", category: "Rent", amount: 21500 },
-  { id: 27, type: "expense", date: "2026-06-09", account: "ICICI Credit Card •• 8890", category: "Shopping", amount: 2800 },
-  { id: 28, type: "expense", date: "2026-06-13", account: "Cash Wallet", category: "Food", amount: 2700 },
-  { id: 29, type: "income", date: "2026-06-16", account: "Paytm Wallet", category: "Cashback", amount: 450 },
-  { id: 30, type: "expense", date: "2026-06-19", account: "SBI Salary Account •• 1122", category: "Utilities", amount: 2100 },
-  { id: 31, type: "expense", date: "2026-06-25", account: "ICICI Credit Card •• 8890", category: "Entertainment", amount: 1450 },
-
-  { id: 32, type: "income", date: "2026-07-05", account: "HDFC Bank •• 4521", category: "Salary", amount: 81000 },
-  { id: 33, type: "expense", date: "2026-07-06", account: "HDFC Bank •• 4521", category: "Rent", amount: 21500 },
-  { id: 34, type: "expense", date: "2026-07-10", account: "ICICI Credit Card •• 8890", category: "Shopping", amount: 6200 },
-  { id: 35, type: "income", date: "2026-07-14", account: "HDFC Bank •• 4521", category: "Freelance", amount: 15000 },
-  { id: 36, type: "expense", date: "2026-07-17", account: "Cash Wallet", category: "Food", amount: 3300 },
-  { id: 37, type: "expense", date: "2026-07-21", account: "SBI Salary Account •• 1122", category: "Utilities", amount: 2200 },
-  { id: 38, type: "expense", date: "2026-07-26", account: "ICICI Credit Card •• 8890", category: "Subscriptions", amount: 599 },
-
-  { id: 39, type: "income", date: "2026-08-05", account: "HDFC Bank •• 4521", category: "Salary", amount: 82000 },
-  { id: 40, type: "expense", date: "2026-08-06", account: "HDFC Bank •• 4521", category: "Rent", amount: 21500 },
-  { id: 41, type: "expense", date: "2026-08-10", account: "ICICI Credit Card •• 8890", category: "Shopping", amount: 3499 },
-  { id: 42, type: "expense", date: "2026-08-12", account: "SBI Salary Account •• 1122", category: "Utilities", amount: 2120 },
-  { id: 43, type: "income", date: "2026-08-15", account: "HDFC Bank •• 4521", category: "Freelance", amount: 18500 },
-  { id: 44, type: "expense", date: "2026-08-17", account: "ICICI Credit Card •• 8890", category: "Subscriptions", amount: 599 },
-  { id: 45, type: "income", date: "2026-08-18", account: "Cash Wallet", category: "Cashback", amount: 6400 },
-  { id: 46, type: "expense", date: "2026-08-21", account: "ICICI Credit Card •• 8890", category: "Entertainment", amount: 850 },
-  { id: 47, type: "expense", date: "2026-08-24", account: "HDFC Bank •• 4521", category: "Food", amount: 1240 },
-];
-
-const ALL_CATEGORIES = Array.from(new Set(MOCK_TRANSACTIONS.map((t) => t.category))).sort();
 
 /* ---------------------------------------------------------------- */
 /* Formatting helpers                                                 */
@@ -258,15 +194,93 @@ function monthLabel(monthKey) {
 /* Main page                                                          */
 /* ---------------------------------------------------------------- */
 
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
+
 export default function Reports() {
   const [active] = useState("Reports");
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const handleNavigate = (label) => {
+    const route = NAV_ROUTES[label];
+    if (route) navigate(route);
+  };
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
   const [openMenu, setOpenMenu] = useState(null);
   const wrapRef = useRef(null);
 
-  const [dateFrom, setDateFrom] = useState("2026-03-01");
-  const [dateTo, setDateTo] = useState("2026-08-31");
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 5, 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [accountFilter, setAccountFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
+
+  const [rawTransactions, setRawTransactions] = useState([]);
+  const [accountsList, setAccountsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const defaultDateFrom = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 5, 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const defaultDateTo = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const [txData, accs] = await Promise.all([
+          listTransactions({ limit: 1000 }),
+          listAccounts(),
+        ]);
+        if (cancelled) return;
+        const mapped = (txData.items || [])
+          .filter((t) => t.type !== "transfer")
+          .map((t) => ({
+            id: t._id,
+            type: t.type,
+            date: (t.date || "").slice(0, 10),
+            account: t.account?.name || "Unknown",
+            category: t.category?.name || "Uncategorized",
+            amount: t.amount,
+          }));
+        setRawTransactions(mapped);
+        setAccountsList(accs.map((a) => a.name));
+      } catch (err) {
+        if (!cancelled) setError(err.message || "Unable to load report data");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const allCategories = useMemo(
+    () => Array.from(new Set(rawTransactions.map((t) => t.category))).sort(),
+    [rawTransactions]
+  );
+
 
   const toggleMenu = (name) => setOpenMenu((cur) => (cur === name ? null : name));
 
@@ -280,23 +294,23 @@ export default function Reports() {
   }, [openMenu]);
 
   const clearFilters = () => {
-    setDateFrom("2026-03-01");
-    setDateTo("2026-08-31");
+    setDateFrom(defaultDateFrom);
+    setDateTo(defaultDateTo);
     setAccountFilter("All");
     setCategoryFilter("All");
   };
-  const hasFilters = accountFilter !== "All" || categoryFilter !== "All" || dateFrom !== "2026-03-01" || dateTo !== "2026-08-31";
+  const hasFilters = accountFilter !== "All" || categoryFilter !== "All" || dateFrom !== defaultDateFrom || dateTo !== defaultDateTo;
 
   /* ---------------- Filtered dataset (transfers excluded) ---------------- */
   const filtered = useMemo(() => {
-    return MOCK_TRANSACTIONS.filter((t) => {
+    return rawTransactions.filter((t) => {
       if (dateFrom && t.date < dateFrom) return false;
       if (dateTo && t.date > dateTo) return false;
       if (accountFilter !== "All" && t.account !== accountFilter) return false;
       if (categoryFilter !== "All" && t.category !== categoryFilter) return false;
       return true;
     });
-  }, [dateFrom, dateTo, accountFilter, categoryFilter]);
+  }, [rawTransactions, dateFrom, dateTo, accountFilter, categoryFilter]);
 
   /* ---------------- Totals ---------------- */
   const totals = useMemo(() => {
@@ -381,7 +395,7 @@ export default function Reports() {
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ label, icon: ItemIcon }) => (
-            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`}>
+            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`} onClick={() => handleNavigate(label)}>
               <ItemIcon size={16} />
               <span>{label}</span>
             </button>
@@ -389,7 +403,7 @@ export default function Reports() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => handleNavigate("Settings")}>
             <IconSettings size={16} />
             <span>Settings</span>
           </button>
@@ -474,10 +488,10 @@ export default function Reports() {
               {openMenu === "avatar" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Prakura account</p>
-                  <button type="button" className="dropdown-item"><IconUser size={14} /> Profile</button>
-                  <button type="button" className="dropdown-item"><IconSettings size={14} /> Account settings</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}><IconUser size={14} /> Profile</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}><IconSettings size={14} /> Account settings</button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger"><IconLogOut size={14} /> Log out</button>
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}><IconLogOut size={14} /> Log out</button>
                 </div>
               )}
             </div>
@@ -499,6 +513,13 @@ export default function Reports() {
 
           <p className="rp-print-title">Prakura ExpenseOS — Report ({dateFrom} to {dateTo})</p>
 
+          {error && (
+            <p className="welcome-subtitle rp-no-print" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
+          {loading && <p className="notif-sub rp-no-print">Loading report data...</p>}
+
           {/* ---------------- Filters ---------------- */}
           <div className="rp-filters-panel rp-no-print">
             <div className="rp-filter-select-wrap">
@@ -513,7 +534,7 @@ export default function Reports() {
             <div className="rp-filter-select-wrap">
               <select value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
                 <option value="All">All accounts</option>
-                {ACCOUNTS_LIST.map((a) => <option key={a} value={a}>{a}</option>)}
+                {accountsList.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
               <IconChevronDownSm size={13} />
             </div>
@@ -521,7 +542,7 @@ export default function Reports() {
             <div className="rp-filter-select-wrap">
               <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
                 <option value="All">All categories</option>
-                {ALL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <IconChevronDownSm size={13} />
             </div>

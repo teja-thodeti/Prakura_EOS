@@ -1,4 +1,13 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { listCategories, createCategory } from "../api/categories";
+import {
+  listBudgets,
+  createBudget as apiCreateBudget,
+  updateBudget as apiUpdateBudget,
+  deleteBudget as apiDeleteBudget,
+} from "../api/budgets";
 import "../styles/Dashboard.css";
 import "../styles/Transactions.css";
 import "../styles/Budgets.css";
@@ -279,17 +288,82 @@ function emptyDraft(month) {
 /* Main page                                                         */
 /* ---------------------------------------------------------------- */
 
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
+
 export default function Budgets() {
   const [active] = useState("Budget");
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const handleNavigate = (label) => {
+    const route = NAV_ROUTES[label];
+    if (route) navigate(route);
+  };
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
   const [openMenu, setOpenMenu] = useState(null);
   const wrapRef = useRef(null);
 
-  const [budgets, setBudgets] = useState(SEED_BUDGETS);
-  const [month, setMonth] = useState("2026-08");
+  const [budgets, setBudgets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [scopeFilter, setScopeFilter] = useState("All");
+  const [expenseCategoryNames, setExpenseCategoryNames] = useState([]);
+  const categoryIdByNameRef = useRef({});
 
   const [drawer, setDrawer] = useState(null); // { mode: "add" | "edit", budget }
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const mapBudget = (b) => ({
+    id: b._id,
+    scope: b.category ? "category" : "overall",
+    category: b.category?.name || null,
+    month: (b.periodStart || b.startDate || "").slice(0, 7),
+    amount: b.amount,
+    spent: b.spent || 0,
+    threshold: b.alertThresholdPercent ?? DEFAULT_THRESHOLD,
+  });
+
+  const loadAll = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [cats, budgetData] = await Promise.all([listCategories("expense"), listBudgets()]);
+      const catMap = {};
+      cats.forEach((c) => (catMap[c.name] = c._id));
+      categoryIdByNameRef.current = catMap;
+      setExpenseCategoryNames(cats.map((c) => c.name));
+      setBudgets(budgetData.map(mapBudget));
+    } catch (err) {
+      setError(err.message || "Unable to load budgets");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  async function resolveCategoryId(name) {
+    if (!name) return undefined;
+    if (categoryIdByNameRef.current[name]) return categoryIdByNameRef.current[name];
+    const created = await createCategory({ name, kind: "expense" });
+    categoryIdByNameRef.current[name] = created._id;
+    return created._id;
+  }
+
 
   const toggleMenu = (name) => setOpenMenu((cur) => (cur === name ? null : name));
 
@@ -340,37 +414,41 @@ export default function Budgets() {
   const openEdit = (b) => setDrawer({ mode: "edit", budget: { ...b, amount: String(b.amount) } });
   const closeDrawer = () => setDrawer(null);
 
-  const saveBudget = (draft) => {
+  const saveBudget = async (draft) => {
     const amount = Number(draft.amount);
     const threshold = Number(draft.threshold);
-    if (draft.id) {
-      setBudgets((list) =>
-        list.map((b) =>
-          b.id === draft.id
-            ? { ...b, scope: draft.scope, category: draft.scope === "overall" ? null : draft.category, month: draft.month, amount, threshold }
-            : b
-        )
-      );
-    } else {
-      setBudgets((list) => [
-        {
-          id: uid(),
-          scope: draft.scope,
-          category: draft.scope === "overall" ? null : draft.category,
-          month: draft.month,
-          amount,
-          spent: 0,
-          threshold,
-        },
-        ...list,
-      ]);
+    const isOverall = draft.scope === "overall";
+    try {
+      const categoryId = isOverall ? undefined : await resolveCategoryId(draft.category);
+      const payload = {
+        name: isOverall ? `Overall Budget • ${monthLabel(draft.month)}` : `${draft.category} • ${monthLabel(draft.month)}`,
+        category: categoryId,
+        amount,
+        period: "monthly",
+        startDate: `${draft.month}-01`,
+        alertThresholdPercent: threshold,
+      };
+
+      if (draft.id) {
+        await apiUpdateBudget(draft.id, payload);
+      } else {
+        await apiCreateBudget(payload);
+      }
+      await loadAll();
+      setDrawer(null);
+    } catch (err) {
+      setError(err.message || "Unable to save budget");
     }
-    setDrawer(null);
   };
 
   const requestDelete = (b) => setDeleteTarget(b);
-  const confirmDelete = () => {
-    setBudgets((list) => list.filter((b) => b.id !== deleteTarget.id));
+  const confirmDelete = async () => {
+    try {
+      await apiDeleteBudget(deleteTarget.id);
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Unable to delete budget");
+    }
     setDeleteTarget(null);
   };
 
@@ -390,7 +468,7 @@ export default function Budgets() {
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ label, icon: ItemIcon }) => (
-            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`}>
+            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`} onClick={() => handleNavigate(label)}>
               <ItemIcon size={16} />
               <span>{label}</span>
             </button>
@@ -398,7 +476,7 @@ export default function Budgets() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => handleNavigate("Settings")}>
             <IconSettings size={16} />
             <span>Settings</span>
           </button>
@@ -452,8 +530,8 @@ export default function Budgets() {
               {openMenu === "apps" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Quick links</p>
-                  <button type="button" className="dropdown-item"><IconReceipt size={14} /> Bills</button>
-                  <button type="button" className="dropdown-item"><IconBarChart size={14} /> Reports</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Bills")}><IconReceipt size={14} /> Bills</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Reports")}><IconBarChart size={14} /> Reports</button>
                 </div>
               )}
             </div>
@@ -466,10 +544,10 @@ export default function Budgets() {
               {openMenu === "avatar" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Prakura account</p>
-                  <button type="button" className="dropdown-item"><IconUser size={14} /> Profile</button>
-                  <button type="button" className="dropdown-item"><IconSettings size={14} /> Account settings</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}><IconUser size={14} /> Profile</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}><IconSettings size={14} /> Account settings</button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger"><IconLogOut size={14} /> Log out</button>
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}><IconLogOut size={14} /> Log out</button>
                 </div>
               )}
             </div>
@@ -483,6 +561,13 @@ export default function Budgets() {
               <IconPlus size={15} /> Add Budget
             </button>
           </div>
+
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
+          {loading && <p className="notif-sub">Loading budgets...</p>}
 
           {/* ---------------- Month switcher ---------------- */}
           <div className="bud-month-switcher">
@@ -590,6 +675,7 @@ export default function Budgets() {
           mode={drawer.mode}
           budget={drawer.budget}
           usedCategories={usedCategories}
+          categoryOptions={expenseCategoryNames}
           onClose={closeDrawer}
           onSave={saveBudget}
         />
@@ -679,7 +765,7 @@ function BudgetCard({ budget: b, onEdit, onDelete }) {
 /* Add / edit drawer                                                 */
 /* ---------------------------------------------------------------- */
 
-function BudgetDrawer({ mode, budget, usedCategories, onClose, onSave }) {
+function BudgetDrawer({ mode, budget, usedCategories, categoryOptions, onClose, onSave }) {
   const [draft, setDraft] = useState(budget);
   const [errors, setErrors] = useState({});
   const isEdit = mode === "edit";
@@ -697,7 +783,7 @@ function BudgetDrawer({ mode, budget, usedCategories, onClose, onSave }) {
 
   const update = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
 
-  const availableCategories = EXPENSE_CATEGORIES.filter(
+  const availableCategories = categoryOptions.filter(
     (c) => c === draft.category || !usedCategories.has(c)
   );
 

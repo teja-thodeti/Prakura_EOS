@@ -1,8 +1,34 @@
 import { Response } from "express";
+import { z } from "zod";
 import { Budget, Transaction } from "../models";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ok, created, fail } from "../utils/response";
 import { AuthRequest } from "../types";
+
+// ========== Validation Schemas ==========
+export const createBudgetSchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(200),
+    amount: z.number().positive("Budget amount must be positive"),
+    category: z.string().optional(),
+    period: z.enum(["weekly", "monthly", "yearly"]),
+    startDate: z.string().datetime().optional(),
+    endDate: z.string().datetime().optional(),
+    description: z.string().max(500).optional(),
+  }),
+});
+
+export const updateBudgetSchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(200).optional(),
+    amount: z.number().positive("Budget amount must be positive").optional(),
+    category: z.string().optional(),
+    period: z.enum(["weekly", "monthly", "yearly"]).optional(),
+    startDate: z.string().datetime().optional(),
+    endDate: z.string().datetime().optional(),
+    description: z.string().max(500).optional(),
+  }),
+});
 
 function periodRange(period: string, startDate: Date): { start: Date; end: Date } {
   const start = new Date(startDate);

@@ -1,4 +1,7 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import React, { useState, useEffect, useRef } from "react";
+import { getProfile, updateProfile, changePassword } from "../api/users";
 import "../styles/Dashboard.css";
 import "../styles/Transactions.css";
 import "../styles/Settings.css";
@@ -213,7 +216,7 @@ const TIME_ZONES = [
   "Australia/Sydney (AEST, UTC+10:00)",
 ];
 
-const TODAY = "2026-08-27";
+const TODAY = new Date().toISOString().slice(0, 10);
 
 function formatDate(iso) {
   if (!iso) return "—";
@@ -225,18 +228,35 @@ function formatDate(iso) {
 /* Main page                                                         */
 /* ---------------------------------------------------------------- */
 
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
+
 export default function Settings() {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
   const [openMenu, setOpenMenu] = useState(null);
   const wrapRef = useRef(null);
 
   const [profile, setProfile] = useState({
-    fullName: "Ravi Kumar",
-    email: "ravi.kumar@example.com",
-    mobile: "+91 98765 43210",
+    fullName: "",
+    email: "",
+    mobile: "",
   });
 
   const [regional, setRegional] = useState({
-    country: "India",
+    country: "",
     currency: "INR",
     timeZone: "Asia/Kolkata (IST, UTC+5:30)",
   });
@@ -253,8 +273,88 @@ export default function Settings() {
 
   const [security, setSecurity] = useState({
     twoFactorEnabled: false,
-    lastPasswordChange: "2026-05-14",
+    lastPasswordChange: TODAY,
   });
+
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setPageError("");
+      try {
+        const data = await getProfile();
+        if (cancelled) return;
+        setProfile({
+          fullName: data.user?.name || "",
+          email: data.user?.email || "",
+          mobile: data.profile?.phone || "",
+        });
+        setRegional({
+          country: data.profile?.address?.country || "",
+          currency: data.profile?.currency || "INR",
+          timeZone: data.profile?.timezone || "Asia/Kolkata (IST, UTC+5:30)",
+        });
+        setFinancial((f) => ({ ...f, defaultCurrency: data.profile?.currency || "INR" }));
+        setNotifications({
+          billReminders: data.profile?.notificationPreferences?.billReminders ?? true,
+          budgetAlerts: data.profile?.notificationPreferences?.budgetAlerts ?? true,
+        });
+      } catch (err) {
+        if (!cancelled) setPageError(err.message || "Unable to load settings");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleProfileSave = async (draft) => {
+    try {
+      await updateProfile({ name: draft.fullName, phone: draft.mobile });
+      setProfile(draft);
+    } catch (err) {
+      setPageError(err.message || "Unable to save profile");
+    }
+  };
+
+  const handleRegionalSave = async (draft) => {
+    try {
+      await updateProfile({
+        currency: draft.currency,
+        timezone: draft.timeZone,
+        address: { country: draft.country },
+      });
+      setRegional(draft);
+    } catch (err) {
+      setPageError(err.message || "Unable to save regional settings");
+    }
+  };
+
+  const handleFinancialSave = async (draft) => {
+    try {
+      await updateProfile({ currency: draft.defaultCurrency });
+      setFinancial(draft);
+    } catch (err) {
+      setPageError(err.message || "Unable to save financial settings");
+    }
+  };
+
+  const toggleNotification = async (key) => {
+    const next = { ...notifications, [key]: !notifications[key] };
+    setNotifications(next);
+    try {
+      await updateProfile({ notificationPreferences: next });
+    } catch (err) {
+      setPageError(err.message || "Unable to save notification preference");
+      setNotifications(notifications);
+    }
+  };
 
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutDone, setLogoutDone] = useState(false);
@@ -295,7 +395,7 @@ export default function Settings() {
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ label, icon: ItemIcon }) => (
-            <button key={label} type="button" className="nav-item">
+            <button key={label} type="button" className="nav-item" onClick={() => navigate(NAV_ROUTES[label] || "/Dashboard")}>
               <ItemIcon size={16} />
               <span>{label}</span>
             </button>
@@ -357,8 +457,8 @@ export default function Settings() {
               {openMenu === "apps" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Quick links</p>
-                  <button type="button" className="dropdown-item"><IconReceipt size={14} /> Bills</button>
-                  <button type="button" className="dropdown-item"><IconBarChart size={14} /> Reports</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Bills")}><IconReceipt size={14} /> Bills</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Reports")}><IconBarChart size={14} /> Reports</button>
                 </div>
               )}
             </div>
@@ -371,10 +471,10 @@ export default function Settings() {
               {openMenu === "avatar" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Prakura account</p>
-                  <button type="button" className="dropdown-item"><IconUser size={14} /> Profile</button>
-                  <button type="button" className="dropdown-item"><IconSettings size={14} /> Account settings</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}><IconUser size={14} /> Profile</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}><IconSettings size={14} /> Account settings</button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger"><IconLogOut size={14} /> Log out</button>
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}><IconLogOut size={14} /> Log out</button>
                 </div>
               )}
             </div>
@@ -386,15 +486,22 @@ export default function Settings() {
             <h1>Settings</h1>
           </div>
 
+          {pageError && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {pageError}
+            </p>
+          )}
+          {loading && <p className="notif-sub">Loading settings...</p>}
+
           <div className="set-sections">
             {/* ---------------- 1. Profile ---------------- */}
-            <ProfileSection profile={profile} onSave={setProfile} />
+            <ProfileSection profile={profile} onSave={handleProfileSave} />
 
             {/* ---------------- 2. Regional Preferences ---------------- */}
-            <RegionalSection regional={regional} onSave={setRegional} />
+            <RegionalSection regional={regional} onSave={handleRegionalSave} />
 
             {/* ---------------- 3. Financial Preferences ---------------- */}
-            <FinancialSection financial={financial} onSave={setFinancial} />
+            <FinancialSection financial={financial} onSave={handleFinancialSave} />
 
             {/* ---------------- 4. Notification Preferences ---------------- */}
             <section className="set-card">
@@ -412,7 +519,7 @@ export default function Settings() {
                   className={`set-switch ${notifications.billReminders ? "set-switch-on" : ""}`}
                   role="switch"
                   aria-checked={notifications.billReminders}
-                  onClick={() => setNotifications((n) => ({ ...n, billReminders: !n.billReminders }))}
+                  onClick={() => toggleNotification("billReminders")}
                 >
                   <span className="set-switch-thumb" />
                 </button>
@@ -427,7 +534,7 @@ export default function Settings() {
                   className={`set-switch ${notifications.budgetAlerts ? "set-switch-on" : ""}`}
                   role="switch"
                   aria-checked={notifications.budgetAlerts}
-                  onClick={() => setNotifications((n) => ({ ...n, budgetAlerts: !n.budgetAlerts }))}
+                  onClick={() => toggleNotification("budgetAlerts")}
                 >
                   <span className="set-switch-thumb" />
                 </button>
@@ -775,13 +882,18 @@ function SecuritySection({ security, onPasswordChanged, onToggle2FA, onLogoutAll
     return Object.keys(e).length === 0;
   };
 
-  const savePassword = () => {
+  const savePassword = async () => {
     if (!validate()) return;
-    onPasswordChanged();
-    setPwd({ current: "", next: "", confirm: "" });
-    setChangingPassword(false);
-    setSavedNote(true);
-    setTimeout(() => setSavedNote(false), 4000);
+    try {
+      await changePassword({ currentPassword: pwd.current, newPassword: pwd.next });
+      onPasswordChanged();
+      setPwd({ current: "", next: "", confirm: "" });
+      setChangingPassword(false);
+      setSavedNote(true);
+      setTimeout(() => setSavedNote(false), 4000);
+    } catch (err) {
+      setErrors({ current: err.message || "Unable to change password" });
+    }
   };
 
   return (

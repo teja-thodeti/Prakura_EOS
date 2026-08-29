@@ -1,4 +1,14 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { listAccounts } from "../api/accounts";
+import { listCategories, createCategory } from "../api/categories";
+import {
+  listTransactions,
+  createTransaction as apiCreateTransaction,
+  updateTransaction as apiUpdateTransaction,
+  deleteTransaction as apiDeleteTransaction,
+} from "../api/transactions";
 import "../styles/Dashboard.css";
 import "../styles/Transactions.css";
 
@@ -273,12 +283,106 @@ function emptyDraft(type = "expense") {
 /* Main page                                                         */
 /* ---------------------------------------------------------------- */
 
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
+
 export default function Transactions() {
   const [active] = useState("Transactions");
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const handleNavigate = (label) => {
+    const route = NAV_ROUTES[label];
+    if (route) navigate(route);
+  };
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
   const [openMenu, setOpenMenu] = useState(null);
   const wrapRef = useRef(null);
 
-  const [transactions, setTransactions] = useState(SEED_TRANSACTIONS);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [accountOptions, setAccountOptions] = useState([]); // [{ id, name }]
+  const [categoryLists, setCategoryLists] = useState({ expense: [], income: [] }); // names only, for selects
+
+  const accountIdByName = useMemo(() => {
+    const map = {};
+    accountOptions.forEach((a) => (map[a.name] = a.id));
+    return map;
+  }, [accountOptions]);
+
+  const categoryIdByNameRef = useRef({});
+
+  const mapTransaction = (t) => ({
+    id: t._id,
+    type: t.type,
+    amount: t.amount,
+    date: (t.date || "").slice(0, 10),
+    account: t.type !== "transfer" ? t.account?.name || "" : "",
+    fromAccount: t.type === "transfer" ? t.account?.name || "" : "",
+    toAccount: t.type === "transfer" ? t.transferToAccount?.name || "" : "",
+    category: t.category?.name || "",
+    merchant: t.merchant || "",
+    paymentMethod: "",
+    notes: t.description || "",
+    tags: t.tags || [],
+    receiptName: t.attachmentUrl || null,
+    reimbursable: false,
+    taxDeductible: false,
+  });
+
+  const loadAll = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [accs, expenseCats, incomeCats, txData] = await Promise.all([
+        listAccounts(),
+        listCategories("expense"),
+        listCategories("income"),
+        listTransactions({ limit: 100 }),
+      ]);
+
+      setAccountOptions(accs.map((a) => ({ id: a._id, name: a.name })));
+
+      const catMap = {};
+      expenseCats.forEach((c) => (catMap[c.name] = c._id));
+      incomeCats.forEach((c) => (catMap[c.name] = c._id));
+      categoryIdByNameRef.current = catMap;
+      setCategoryLists({
+        expense: expenseCats.map((c) => c.name),
+        income: incomeCats.map((c) => c.name),
+      });
+
+      setTransactions((txData.items || []).map(mapTransaction));
+    } catch (err) {
+      setError(err.message || "Unable to load transactions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  async function resolveCategoryId(name, kind) {
+    if (!name) return undefined;
+    if (categoryIdByNameRef.current[name]) return categoryIdByNameRef.current[name];
+    const created = await createCategory({ name, kind });
+    categoryIdByNameRef.current[name] = created._id;
+    return created._id;
+  }
 
   // Filters
   const [search, setSearch] = useState("");
@@ -304,8 +408,8 @@ export default function Transactions() {
   }, [openMenu]);
 
   const allCategories = useMemo(
-    () => Array.from(new Set([...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES])).sort(),
-    []
+    () => Array.from(new Set([...categoryLists.expense, ...categoryLists.income])).sort(),
+    [categoryLists]
   );
 
   const filtered = useMemo(() => {
@@ -338,18 +442,48 @@ export default function Transactions() {
   const openEdit = (t) => setDrawer({ mode: "edit", transaction: { ...t } });
   const closeDrawer = () => setDrawer(null);
 
-  const saveTransaction = (draft) => {
-    if (draft.id) {
-      setTransactions((list) => list.map((t) => (t.id === draft.id ? draft : t)));
-    } else {
-      setTransactions((list) => [{ ...draft, id: uid() }, ...list]);
+  const saveTransaction = async (draft) => {
+    try {
+      const kind = draft.type === "income" ? "income" : "expense";
+      const categoryId = draft.type !== "transfer" ? await resolveCategoryId(draft.category, kind) : undefined;
+
+      const payload = {
+        type: draft.type,
+        amount: Number(draft.amount),
+        date: draft.date,
+        description: draft.notes,
+        merchant: draft.merchant,
+        tags: draft.tags || [],
+        category: categoryId,
+      };
+
+      if (draft.type === "transfer") {
+        payload.account = accountIdByName[draft.fromAccount];
+        payload.transferToAccount = accountIdByName[draft.toAccount];
+      } else {
+        payload.account = accountIdByName[draft.account];
+      }
+
+      if (draft.id) {
+        await apiUpdateTransaction(draft.id, payload);
+      } else {
+        await apiCreateTransaction(payload);
+      }
+      await loadAll();
+      setDrawer(null);
+    } catch (err) {
+      setError(err.message || "Unable to save transaction");
     }
-    setDrawer(null);
   };
 
   const requestDelete = (t) => setDeleteTarget(t);
-  const confirmDelete = () => {
-    setTransactions((list) => list.filter((t) => t.id !== deleteTarget.id));
+  const confirmDelete = async () => {
+    try {
+      await apiDeleteTransaction(deleteTarget.id);
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Unable to delete transaction");
+    }
     if (drawer && drawer.transaction && drawer.transaction.id === deleteTarget.id) setDrawer(null);
     setDeleteTarget(null);
   };
@@ -377,7 +511,7 @@ export default function Transactions() {
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ label, icon: ItemIcon }) => (
-            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`}>
+            <button key={label} type="button" className={`nav-item ${active === label ? "nav-item-active" : ""}`} onClick={() => handleNavigate(label)}>
               <ItemIcon size={16} />
               <span>{label}</span>
             </button>
@@ -385,7 +519,7 @@ export default function Transactions() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => handleNavigate("Settings")}>
             <IconSettings size={16} />
             <span>Settings</span>
           </button>
@@ -456,8 +590,8 @@ export default function Transactions() {
               {openMenu === "apps" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Quick links</p>
-                  <button type="button" className="dropdown-item"><IconReceipt size={14} /> Bills</button>
-                  <button type="button" className="dropdown-item"><IconBarChart size={14} /> Reports</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Bills")}><IconReceipt size={14} /> Bills</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Reports")}><IconBarChart size={14} /> Reports</button>
                 </div>
               )}
             </div>
@@ -470,10 +604,10 @@ export default function Transactions() {
               {openMenu === "avatar" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Prakura account</p>
-                  <button type="button" className="dropdown-item"><IconUser size={14} /> Profile</button>
-                  <button type="button" className="dropdown-item"><IconSettings size={14} /> Account settings</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}><IconUser size={14} /> Profile</button>
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}><IconSettings size={14} /> Account settings</button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger"><IconLogOut size={14} /> Log out</button>
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}><IconLogOut size={14} /> Log out</button>
                 </div>
               )}
             </div>
@@ -487,6 +621,13 @@ export default function Transactions() {
               <IconPlus size={15} /> Add Transaction
             </button>
           </div>
+
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
+          {loading && <p className="notif-sub">Loading transactions...</p>}
 
           {/* ---------------- Filters ---------------- */}
           <div className="tx-filters-panel">
@@ -536,8 +677,8 @@ export default function Transactions() {
               <div className="tx-filter-select-wrap">
                 <select value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
                   <option value="All">All accounts</option>
-                  {ACCOUNTS.map((a) => (
-                    <option key={a} value={a}>{a}</option>
+                  {accountOptions.map((a) => (
+                    <option key={a.id} value={a.name}>{a.name}</option>
                   ))}
                 </select>
                 <IconChevronDown size={13} />
@@ -683,6 +824,8 @@ export default function Transactions() {
         <TransactionDrawer
           mode={drawer.mode}
           transaction={drawer.transaction}
+          accountOptions={accountOptions}
+          categoryLists={categoryLists}
           onClose={closeDrawer}
           onSave={saveTransaction}
           onEdit={() => setDrawer({ mode: "edit", transaction: drawer.transaction })}
@@ -719,7 +862,7 @@ export default function Transactions() {
 /* Transaction drawer — view / add / edit                            */
 /* ---------------------------------------------------------------- */
 
-function TransactionDrawer({ mode, transaction, onClose, onSave, onEdit, onDelete }) {
+function TransactionDrawer({ mode, transaction, accountOptions, categoryLists, onClose, onSave, onEdit, onDelete }) {
   const [draft, setDraft] = useState(transaction);
   const [tagInput, setTagInput] = useState("");
   const [errors, setErrors] = useState({});
@@ -750,7 +893,7 @@ function TransactionDrawer({ mode, transaction, onClose, onSave, onEdit, onDelet
     update("receiptName", file ? file.name : draft.receiptName);
   };
 
-  const categoryOptions = draft.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const categoryOptions = draft.type === "income" ? categoryLists.income : categoryLists.expense;
 
   const validate = () => {
     const e = {};
@@ -948,7 +1091,7 @@ function TransactionForm({ draft, update, errors, categoryOptions, tagInput, set
                 <span className="input-icon"><IconWallet size={16} /></span>
                 <select id="tx-from" className="tx-select" value={draft.fromAccount} onChange={(e) => update("fromAccount", e.target.value)}>
                   <option value="" disabled>Select account</option>
-                  {ACCOUNTS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {accountOptions.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
                 </select>
                 <span className="tx-select-chevron"><IconChevronDown size={15} /></span>
               </div>
@@ -960,7 +1103,7 @@ function TransactionForm({ draft, update, errors, categoryOptions, tagInput, set
                 <span className="input-icon"><IconWallet size={16} /></span>
                 <select id="tx-to" className="tx-select" value={draft.toAccount} onChange={(e) => update("toAccount", e.target.value)}>
                   <option value="" disabled>Select account</option>
-                  {ACCOUNTS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {accountOptions.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
                 </select>
                 <span className="tx-select-chevron"><IconChevronDown size={15} /></span>
               </div>
@@ -977,7 +1120,7 @@ function TransactionForm({ draft, update, errors, categoryOptions, tagInput, set
               <span className="input-icon"><IconWallet size={16} /></span>
               <select id="tx-account" className="tx-select" value={draft.account} onChange={(e) => update("account", e.target.value)}>
                 <option value="" disabled>Select account</option>
-                {ACCOUNTS.map((a) => <option key={a} value={a}>{a}</option>)}
+                {accountOptions.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
               </select>
               <span className="tx-select-chevron"><IconChevronDown size={15} /></span>
             </div>

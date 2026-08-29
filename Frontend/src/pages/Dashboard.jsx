@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { getDashboardSummary } from "../api/dashboard";
+import { getIncomeVsExpense } from "../api/reports";
 import "../styles/Dashboard.css";
 
 /* ---------------------------------------------------------------- */
@@ -190,49 +194,75 @@ const NAV_ITEMS = [
   { label: "Subscription", icon: IconCrown },
 ];
 
-const STATS = [
-  { label: "Balance", value: "$21,350.00", tone: "navy" },
-  { label: "Income", value: "$12,130", tone: "green" },
-  { label: "Expenses", value: "$2,120", tone: "red", badge: true },
-];
+const NAV_ROUTES = {
+  Dashboard: "/Dashboard",
+  Transactions: "/Transactions",
+  Accounts: "/Accounts",
+  Budget: "/Budgets",
+  Bills: "/Bills",
+  Reports: "/Reports",
+  Subscription: "/Subscription",
+  Settings: "/Settings",
+};
 
-const CHART_LABELS = ["Apr", "Mar", "Mar", "Jul", "Aug", "Sep"];
-const CHART_NAVY = [420, 620, 520, 780, 460, 520];
-const CHART_PURPLE = [380, 480, 430, 830, 560, 430];
-const CHART_MAX = 800;
-const CHART_Y_LABELS = [600, 600, 400, 0];
-
-const PROSPARSES = [
-  { title: "Budget date", sub: "$28,900", amount: "-$140", tag: "low", iconBg: "purple", Icon: IconPieChart },
-  { title: "Expenser balance", sub: "$21,500", amount: "-$120", tag: "low", iconBg: "red", Icon: IconAlertCircle },
-  { title: "Signaling", sub: "$100 onmonth", progress: 62, iconBg: "blue", Icon: IconRepeat },
-];
-
-const TRANSACTIONS = [
-  { title: "Procurrant date", sub: "$39,400", amount: "-$762.0", badge: "New", iconBg: "purple", Icon: IconCardStack },
-  { title: "Customert date", sub: "$31,000", amount: "-$70.50", badge: "New", iconBg: "red", Icon: IconAlertCircle },
-  { title: "Recipnt flow", sub: "$17,000", amount: "-$34.50", badge: "New", iconBg: "blue", Icon: IconRepeat },
-];
-
-const NOTIFICATIONS = [
-  { title: "Electricity bill due", sub: "3 days left · $140" },
-  { title: "Budget limit reached", sub: "Groceries · 92% used" },
-];
+const fmtMoney = (n) =>
+  `₹${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /* Trial ring: circumference for r=22 */
 const TRIAL_TOTAL_DAYS = 30;
-const TRIAL_DAYS_LEFT = 15;
 const RING_R = 22;
 const RING_C = 2 * Math.PI * RING_R;
-const RING_PROGRESS = TRIAL_DAYS_LEFT / TRIAL_TOTAL_DAYS;
-const RING_OFFSET = RING_C * (1 - RING_PROGRESS);
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [active, setActive] = useState("Dashboard");
   const [openMenu, setOpenMenu] = useState(null); // "help" | "bell" | "apps" | "avatar" | "manage" | null
   const wrapRef = useRef(null);
 
+  const [summary, setSummary] = useState(null);
+  const [chartData, setChartData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const toggleMenu = (name) => setOpenMenu((cur) => (cur === name ? null : name));
+
+  const handleNavigate = (label) => {
+    setActive(label);
+    const route = NAV_ROUTES[label];
+    if (route) navigate(route);
+  };
+
+  const handleLogout = () => {
+    signOut();
+    navigate("/", { replace: true });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const [dashData, trend] = await Promise.all([
+          getDashboardSummary(),
+          getIncomeVsExpense().catch(() => []),
+        ]);
+        if (!cancelled) {
+          setSummary(dashData);
+          setChartData(trend || []);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message || "Unable to load dashboard data");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -244,6 +274,33 @@ export default function Dashboard() {
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [openMenu]);
+
+  const STATS = summary
+    ? [
+        { label: "Balance", value: fmtMoney(summary.totalBalance), tone: "navy" },
+        { label: "Income", value: fmtMoney(summary.monthIncome), tone: "green" },
+        {
+          label: "Expenses",
+          value: fmtMoney(summary.monthExpense),
+          tone: "red",
+          badge: summary.monthExpense > 0,
+        },
+      ]
+    : [];
+
+  const CHART_LABELS = chartData.map((d) => d.month);
+  const CHART_INCOME = chartData.map((d) => d.income);
+  const CHART_EXPENSE = chartData.map((d) => d.expense);
+  const CHART_MAX = Math.max(1, ...CHART_INCOME, ...CHART_EXPENSE);
+
+  const budgetItems = summary?.budgets || [];
+  const recentTransactions = summary?.recentTransactions || [];
+  const upcomingBills = summary?.upcomingBills || [];
+
+  const onboarding = summary?.onboarding;
+  const trialDaysLeft = onboarding?.completed ? 0 : TRIAL_TOTAL_DAYS;
+  const ringProgress = trialDaysLeft / TRIAL_TOTAL_DAYS;
+  const ringOffset = RING_C * (1 - ringProgress);
 
   return (
     <div className="dash-app" ref={wrapRef}>
@@ -260,7 +317,7 @@ export default function Dashboard() {
               key={label}
               type="button"
               className={`nav-item ${active === label ? "nav-item-active" : ""}`}
-              onClick={() => setActive(label)}
+              onClick={() => handleNavigate(label)}
             >
               <ItemIcon size={16} />
               <span>{label}</span>
@@ -272,7 +329,7 @@ export default function Dashboard() {
           <button
             type="button"
             className={`nav-item ${active === "Settings" ? "nav-item-active" : ""}`}
-            onClick={() => setActive("Settings")}
+            onClick={() => handleNavigate("Settings")}
           >
             <IconSettings size={16} />
             <span>Settings</span>
@@ -291,17 +348,17 @@ export default function Dashboard() {
                   strokeWidth="5"
                   strokeLinecap="round"
                   strokeDasharray={RING_C}
-                  strokeDashoffset={RING_OFFSET}
+                  strokeDashoffset={ringOffset}
                   transform="rotate(-90 28 28)"
                 />
                 <text x="28" y="31" textAnchor="middle" className="trial-ring-text">
-                  {TRIAL_DAYS_LEFT}
+                  {trialDaysLeft}
                 </text>
               </svg>
             </div>
             <div className="trial-text">
               <p className="trial-title">Free trial</p>
-              <p className="trial-sub">{TRIAL_DAYS_LEFT} days left</p>
+              <p className="trial-sub">{trialDaysLeft} days left</p>
             </div>
           </div>
         </div>
@@ -346,15 +403,18 @@ export default function Dashboard() {
                 onClick={() => toggleMenu("bell")}
               >
                 <IconBell size={16} />
-                <span className="badge">2</span>
+                {upcomingBills.length > 0 && <span className="badge">{upcomingBills.length}</span>}
               </button>
               {openMenu === "bell" && (
                 <div className="dropdown-panel dropdown-right dropdown-wide">
                   <p className="dropdown-title">Notifications</p>
-                  {NOTIFICATIONS.map((n) => (
-                    <div className="notif-row" key={n.title}>
-                      <p className="notif-title">{n.title}</p>
-                      <p className="notif-sub">{n.sub}</p>
+                  {upcomingBills.length === 0 && <p className="notif-sub">No upcoming bills.</p>}
+                  {upcomingBills.map((n) => (
+                    <div className="notif-row" key={n._id}>
+                      <p className="notif-title">{n.name}</p>
+                      <p className="notif-sub">
+                        Due {new Date(n.dueDate).toLocaleDateString()} · {fmtMoney(n.amount)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -391,14 +451,14 @@ export default function Dashboard() {
               {openMenu === "avatar" && (
                 <div className="dropdown-panel dropdown-right">
                   <p className="dropdown-title">Prakura account</p>
-                  <button type="button" className="dropdown-item">
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}>
                     <IconUser size={14} /> Profile
                   </button>
-                  <button type="button" className="dropdown-item">
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}>
                     <IconSettings size={14} /> Account settings
                   </button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger">
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}>
                     <IconLogOut size={14} /> Log out
                   </button>
                 </div>
@@ -417,17 +477,17 @@ export default function Dashboard() {
               </button>
               {openMenu === "manage" && (
                 <div className="dropdown-panel dropdown-right-align">
-                  <button type="button" className="dropdown-item">
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Profile")}>
                     <IconUser size={14} /> Profile settings
                   </button>
-                  <button type="button" className="dropdown-item">
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Subscription")}>
                     <IconCreditCard size={14} /> Billing
                   </button>
-                  <button type="button" className="dropdown-item">
+                  <button type="button" className="dropdown-item" onClick={() => navigate("/Settings")}>
                     <IconKey size={14} /> Security
                   </button>
                   <div className="dropdown-divider" />
-                  <button type="button" className="dropdown-item dropdown-item-danger">
+                  <button type="button" className="dropdown-item dropdown-item-danger" onClick={handleLogout}>
                     <IconLogOut size={14} /> Log out
                   </button>
                 </div>
@@ -435,8 +495,15 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600, margin: "0 0 12px" }}>
+              {error}
+            </p>
+          )}
+
           {/* ---------------- Stat cards ---------------- */}
           <div className="stats-row">
+            {loading && STATS.length === 0 && <p className="notif-sub">Loading...</p>}
             {STATS.map((s) => (
               <div className="stat-card" key={s.label}>
                 <span className="stat-label">{s.label}</span>
@@ -457,24 +524,24 @@ export default function Dashboard() {
             <div className="dash-col">
               <section className="panel">
                 <div className="panel-header">
-                  <h2>Spending chart</h2>
+                  <h2>Income vs Expense</h2>
                   <button type="button" className="pill-select">
-                    Busone
+                    6 months
                     <IconChevronDown size={12} />
                   </button>
                 </div>
 
                 <div className="bar-chart">
                   <div className="bar-chart-yaxis">
-                    {CHART_Y_LABELS.map((v, i) => (
+                    {[CHART_MAX, Math.round(CHART_MAX * 0.66), Math.round(CHART_MAX * 0.33), 0].map((v, i) => (
                       <span key={i}>{v}</span>
                     ))}
                   </div>
                   <div className="bar-chart-bars-wrap">
                     {CHART_LABELS.map((m, i) => (
                       <div className="bar-group" key={i}>
-                        <div className="bar bar-navy" style={{ height: `${(CHART_NAVY[i] / CHART_MAX) * 100}%` }} />
-                        <div className="bar bar-purple" style={{ height: `${(CHART_PURPLE[i] / CHART_MAX) * 100}%` }} />
+                        <div className="bar bar-navy" style={{ height: `${(CHART_INCOME[i] / CHART_MAX) * 100}%` }} />
+                        <div className="bar bar-purple" style={{ height: `${(CHART_EXPENSE[i] / CHART_MAX) * 100}%` }} />
                       </div>
                     ))}
                   </div>
@@ -488,30 +555,26 @@ export default function Dashboard() {
               </section>
 
               <section className="panel">
-                <div className="budget-block">
-                  <h2>Budget Progress</h2>
-                  <div className="progress-track">
-                    <div className="progress-fill progress-green" style={{ width: "71%" }} />
-                    <span className="progress-chip" style={{ left: "71%" }}>
-                      35$
-                    </span>
+                {budgetItems.slice(0, 2).map((b) => (
+                  <div className="budget-block" key={b._id}>
+                    <div className="budget-row-top">
+                      <h2>{b.name}</h2>
+                      <span className="budget-percent">{Math.round(b.percentUsed)}%</span>
+                    </div>
+                    <div className="progress-track">
+                      <div
+                        className={`progress-fill ${b.percentUsed >= 100 ? "progress-blue" : "progress-green"}`}
+                        style={{ width: `${Math.min(b.percentUsed, 100)}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-
-                <div className="budget-block">
-                  <div className="budget-row-top">
-                    <h2>Budget Progress</h2>
-                    <span className="budget-percent">30.7%</span>
-                  </div>
-                  <div className="progress-track">
-                    <div className="progress-fill progress-blue" style={{ width: "30.7%" }} />
-                  </div>
-                </div>
+                ))}
+                {budgetItems.length === 0 && <p className="notif-sub">No budgets set up yet.</p>}
 
                 <div className="panel-footer-row">
                   <span>Recent Transactions</span>
-                  <button type="button" className="send-more-btn">
-                    Send more
+                  <button type="button" className="send-more-btn" onClick={() => navigate("/Transactions")}>
+                    View all
                   </button>
                 </div>
               </section>
@@ -520,29 +583,25 @@ export default function Dashboard() {
             <div className="dash-col">
               <section className="panel">
                 <div className="panel-header">
-                  <h2>Recent Prosparses</h2>
+                  <h2>Budgets</h2>
                 </div>
                 <ul className="item-list">
-                  {PROSPARSES.map((p) => (
-                    <li className="item-row" key={p.title}>
-                      <span className={`item-icon icon-${p.iconBg}`}>
-                        <p.Icon size={15} />
+                  {budgetItems.map((b) => (
+                    <li className="item-row" key={b._id}>
+                      <span className="item-icon icon-purple">
+                        <IconPieChart size={15} />
                       </span>
                       <div className="item-text">
-                        <p className="item-title">{p.title}</p>
-                        <p className="item-sub">{p.sub}</p>
+                        <p className="item-title">{b.name}</p>
+                        <p className="item-sub">{fmtMoney(b.amount)}</p>
                       </div>
-                      {p.progress ? (
-                        <div className="mini-progress-track">
-                          <div className="mini-progress-fill" style={{ width: `${p.progress}%` }} />
-                        </div>
-                      ) : (
-                        <span className="item-amount">
-                          {p.amount} <span className="item-tag">{p.tag}</span>
-                        </span>
-                      )}
+                      <span className="item-amount">
+                        -{fmtMoney(b.spent)}{" "}
+                        <span className="item-tag">{b.percentUsed >= 100 ? "over" : "on track"}</span>
+                      </span>
                     </li>
                   ))}
+                  {budgetItems.length === 0 && <li className="notif-sub">No budgets yet.</li>}
                 </ul>
               </section>
 
@@ -551,21 +610,24 @@ export default function Dashboard() {
                   <h2>Recent Transactions</h2>
                 </div>
                 <ul className="item-list">
-                  {TRANSACTIONS.map((t) => (
-                    <li className="item-row" key={t.title}>
-                      <span className={`item-icon icon-${t.iconBg}`}>
-                        <t.Icon size={15} />
+                  {recentTransactions.map((t) => (
+                    <li className="item-row" key={t._id}>
+                      <span className={`item-icon icon-${t.type === "income" ? "blue" : "red"}`}>
+                        {t.type === "income" ? <IconRepeat size={15} /> : <IconAlertCircle size={15} />}
                       </span>
                       <div className="item-text">
-                        <p className="item-title">{t.title}</p>
-                        <p className="item-sub">{t.sub}</p>
+                        <p className="item-title">{t.description || t.category?.name || "Transaction"}</p>
+                        <p className="item-sub">{new Date(t.date).toLocaleDateString()}</p>
                       </div>
                       <div className="item-amount-col">
-                        <span className="item-amount-red">{t.amount}</span>
-                        <span className="badge-new">{t.badge}</span>
+                        <span className="item-amount-red">
+                          {t.type === "income" ? "+" : "-"}
+                          {fmtMoney(t.amount)}
+                        </span>
                       </div>
                     </li>
                   ))}
+                  {recentTransactions.length === 0 && <li className="notif-sub">No transactions yet.</li>}
                 </ul>
               </section>
             </div>

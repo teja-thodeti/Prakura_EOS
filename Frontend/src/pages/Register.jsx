@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { register } from "../api/auth";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Register.css";
 
 const QUOTES = [
@@ -10,6 +13,8 @@ const QUOTES = [
 ];
 
 export default function Register() {
+  const navigate = useNavigate();
+  const { refresh } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,6 +23,8 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [fade, setFade] = useState(true);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -30,9 +37,29 @@ export default function Register() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: wire up to POST /auth/register
+    setError("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await register({ name, email, password });
+      await refresh();
+      navigate("/Onboarding", { replace: true });
+    } catch (err) {
+      setError(err.message || "Unable to create your account. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -63,6 +90,12 @@ export default function Register() {
 
           <h1 className="welcome-title">Create account</h1>
           <p className="welcome-subtitle">Join Prakura ExpenseOS and take control of your money</p>
+
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} noValidate>
             <label className="field-label" htmlFor="name">
@@ -246,16 +279,16 @@ export default function Register() {
               </label>
             </div>
 
-            <button type="submit" className="signin-btn">
-              Create account
+            <button type="submit" className="signin-btn" disabled={submitting}>
+              {submitting ? "Creating account..." : "Create account"}
             </button>
           </form>
 
           <p className="signup-row">
             Already have an account?{" "}
-            <a href="/login" className="signup-link">
+            <Link to="/" className="signup-link">
               Sign in
-            </a>
+            </Link>
           </p>
 
           <div className="divider">

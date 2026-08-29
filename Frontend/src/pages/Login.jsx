@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { login } from "../api/auth";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Login.css";
 
 const QUOTES = [
@@ -10,11 +13,16 @@ const QUOTES = [
 ];
 
 export default function Login() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { refresh } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [fade, setFade] = useState(true);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -27,9 +35,20 @@ export default function Login() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: wire up to POST /auth/login
+    setError("");
+    setSubmitting(true);
+    try {
+      await login({ email, password });
+      await refresh();
+      const redirectTo = location.state?.from?.pathname || "/Dashboard";
+      navigate(redirectTo, { replace: true });
+    } catch (err) {
+      setError(err.message || "Unable to sign in. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -60,6 +79,12 @@ export default function Login() {
 
           <h1 className="welcome-title">Welcome back</h1>
           <p className="welcome-subtitle">Welcome to our Prakura ExpenseOS</p>
+
+          {error && (
+            <p className="welcome-subtitle" style={{ color: "#ef4444", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} noValidate>
             <label className="field-label" htmlFor="email">
@@ -151,21 +176,21 @@ export default function Login() {
             </div>
 
             <div className="forgot-row">
-              <a href="/forgot-password" className="forgot-link">
+              <Link to="/ForgotPassword" className="forgot-link">
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
-            <button type="submit" className="signin-btn">
-              Sign In
+            <button type="submit" className="signin-btn" disabled={submitting}>
+              {submitting ? "Signing in..." : "Sign In"}
             </button>
           </form>
 
           <p className="signup-row">
             Don&rsquo;t have an account?{" "}
-            <a href="/register" className="signup-link">
+            <Link to="/Register" className="signup-link">
               Create one
-            </a>
+            </Link>
           </p>
 
           <div className="divider">
