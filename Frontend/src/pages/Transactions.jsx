@@ -220,11 +220,11 @@ const INCOME_CATEGORIES = ["Salary", "Bonus", "Freelance", "Business", "Cashback
 const ACCOUNTS = ["HDFC Bank •• 4521", "Cash Wallet", "ICICI Credit Card •• 8890", "SBI Savings •• 1122", "Zerodha Investment"];
 const PAYMENT_METHODS = ["Bank Transfer", "UPI", "Cash", "Credit Card", "Debit Card", "Cheque", "Auto-debit", "Other"];
 
-const TRIAL_TOTAL_DAYS = 15;
+const TRIAL_TOTAL_DAYS = 30;
 const TRIAL_DAYS_LEFT = 15;
 const RING_R = 22;
 const RING_C = 2 * Math.PI * RING_R;
-const RING_OFFSET = 0;
+const RING_OFFSET = RING_C * (1 - TRIAL_DAYS_LEFT / TRIAL_TOTAL_DAYS);
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -934,7 +934,7 @@ function TransactionDrawer({ mode, transaction, accountOptions, categoryLists, o
           {isView ? (
             <TransactionViewBody t={draft} />
           ) : (
-            <TransactionForm draft={draft} update={update} errors={errors} categoryOptions={categoryOptions}
+            <TransactionForm draft={draft} update={update} errors={errors} categoryOptions={categoryOptions} accountOptions={accountOptions}
               tagInput={tagInput} setTagInput={setTagInput} addTag={addTag} removeTag={removeTag}
               handleReceiptChange={handleReceiptChange}
             />
@@ -1039,7 +1039,7 @@ function TransactionViewBody({ t }) {
 
 /* ---------------- Add / edit form ---------------- */
 
-function TransactionForm({ draft, update, errors, categoryOptions, tagInput, setTagInput, addTag, removeTag, handleReceiptChange }) {
+function TransactionForm({ draft, update, errors, categoryOptions, accountOptions, tagInput, setTagInput, addTag, removeTag, handleReceiptChange }) {
   const isTransfer = draft.type === "transfer";
 
   return (
