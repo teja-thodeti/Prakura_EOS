@@ -2,7 +2,7 @@
 // All pages import from here instead of calling fetch() directly, so the
 // base URL, auth headers, and token-refresh logic live in exactly one place.
 
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "https://prakura-eos.onrender.com/api";
 
 const ACCESS_TOKEN_KEY = "expenseos_access_token";
 const REFRESH_TOKEN_KEY = "expenseos_refresh_token";
