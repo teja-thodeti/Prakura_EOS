@@ -1,43 +1,9 @@
 import { Response } from "express";
 import mongoose from "mongoose";
-import { z } from "zod";
 import { Bill, Transaction, Account } from "../models";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ok, created, fail } from "../utils/response";
 import { AuthRequest } from "../types";
-
-// ========== Validation Schemas ==========
-export const createBillSchema = z.object({
-  body: z.object({
-    name: z.string().min(1).max(200),
-    amount: z.number().positive("Bill amount must be positive"),
-    account: z.string().optional(),
-    category: z.string(),
-    dueDate: z.string().datetime(),
-    frequency: z.enum(["once", "weekly", "monthly", "quarterly", "yearly"]),
-    status: z.enum(["upcoming", "overdue", "paid"]).optional(),
-    description: z.string().max(500).optional(),
-  }),
-});
-
-export const updateBillSchema = z.object({
-  body: z.object({
-    name: z.string().min(1).max(200).optional(),
-    amount: z.number().positive("Bill amount must be positive").optional(),
-    account: z.string().optional(),
-    category: z.string().optional(),
-    dueDate: z.string().datetime().optional(),
-    frequency: z.enum(["once", "weekly", "monthly", "quarterly", "yearly"]).optional(),
-    status: z.enum(["upcoming", "overdue", "paid"]).optional(),
-    description: z.string().max(500).optional(),
-  }),
-});
-
-export const payBillSchema = z.object({
-  body: z.object({
-    accountId: z.string().optional(),
-  }),
-});
 
 function nextDueDate(current: Date, frequency: string): Date {
   const next = new Date(current);

@@ -1,44 +1,9 @@
 import { Response } from "express";
 import mongoose from "mongoose";
-import { z } from "zod";
 import { Transaction, Account } from "../models";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ok, created, fail } from "../utils/response";
 import { AuthRequest } from "../types";
-
-// ========== Validation Schemas ==========
-export const createTransactionSchema = z.object({
-  body: z.object({
-    account: z.string().nonempty("Account is required"),
-    type: z.enum(["income", "expense", "transfer"]),
-    amount: z.number().positive("Amount must be positive"),
-    category: z.string().optional(),
-    subcategory: z.string().optional(),
-    transferToAccount: z.string().optional(),
-    description: z.string().max(500).optional(),
-    merchant: z.string().max(200).optional(),
-    date: z.string().datetime().optional(),
-    status: z.enum(["pending", "cleared"]).optional(),
-  }).refine(
-    (data) => data.type !== "transfer" || data.transferToAccount,
-    { message: "transferToAccount is required for transfer type", path: ["transferToAccount"] }
-  ),
-});
-
-export const updateTransactionSchema = z.object({
-  body: z.object({
-    account: z.string().optional(),
-    type: z.enum(["income", "expense", "transfer"]).optional(),
-    amount: z.number().positive("Amount must be positive").optional(),
-    category: z.string().optional(),
-    subcategory: z.string().optional(),
-    transferToAccount: z.string().optional(),
-    description: z.string().max(500).optional(),
-    merchant: z.string().max(200).optional(),
-    date: z.string().datetime().optional(),
-    status: z.enum(["pending", "cleared"]).optional(),
-  }),
-});
 
 function balanceDelta(type: string, amount: number): number {
   if (type === "income") return amount;
